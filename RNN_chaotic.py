@@ -15,7 +15,8 @@ from random import sample, random
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import AgglomerativeClustering
-from scipy.cluster.hierarchy import dendrogram
+from scipy.cluster.hierarchy import dendrogram, linkage
+from scipy.spatial.distance import pdist, squareform
 from scipy import signal
 import skimage.io
 import math
@@ -30,7 +31,7 @@ hidden_size = 250;
 
 T = 10000;
 
-g = 3;
+g = 5;
 
 dt = 1;
 tau = 10;
@@ -64,59 +65,59 @@ h2h.weight.data = w;
 
 #%%
 
-stim_duration = 500;
-isi = 500;
+# stim_duration = 500;
+# isi = 500;
 
-freqs_low = 2000;
-freqs_high = 90000;
-num_freqs = 10;
-#octaves = 1.5;
-octaves = (90/2)**(1/((num_freqs-1)))
+# freqs_low = 2000;
+# freqs_high = 90000;
+# num_freqs = 10;
+# #octaves = 1.5;
+# octaves = (90/2)**(1/((num_freqs-1)))
 
-freqs = np.zeros((num_freqs));
-freqs[0] = freqs_low;
-for n_freq in range(num_freqs-1):
-    freqs[n_freq+1] = freqs[n_freq]*octaves
+# freqs = np.zeros((num_freqs));
+# freqs[0] = freqs_low;
+# for n_freq in range(num_freqs-1):
+#     freqs[n_freq+1] = freqs[n_freq]*octaves
 
-Fs = 200000;
+# Fs = 200000;
 
-num_stim = 9
+# num_stim = 9
 
-stim_types = sample(range(num_freqs), num_stim)
+# stim_types = sample(range(num_freqs), num_stim)
 
-stim_times = np.asarray(range(num_stim))*(stim_duration+isi)+isi+np.random.uniform(low=0, high=100, size=num_stim)
+# stim_times = np.asarray(range(num_stim))*(stim_duration+isi)+isi+np.random.uniform(low=0, high=100, size=num_stim)
 
-sound_len = int(T*Fs/1000)
+# sound_len = int(T*Fs/1000)
 
-sound = np.zeros((sound_len))
-sound_t = np.asarray(range(sound_len))/Fs*1000
+# sound = np.zeros((sound_len))
+# sound_t = np.asarray(range(sound_len))/Fs*1000
 
-tone_len = int(stim_duration*Fs/1000)
-tone_t = np.asarray(range(tone_len))/Fs*1000
+# tone_len = int(stim_duration*Fs/1000)
+# tone_t = np.asarray(range(tone_len))/Fs*1000
 
-for n_st in range(num_stim):
-    stim_time1 = stim_times[n_st]
-    stim_type1 = stim_types[n_st]
+# for n_st in range(num_stim):
+#     stim_time1 = stim_times[n_st]
+#     stim_type1 = stim_types[n_st]
     
-    stim_idx = np.argmin((sound_t - stim_time1)**2)
+#     stim_idx = np.argmin((sound_t - stim_time1)**2)
     
-    temp_tone = np.sin(tone_t*2*math.pi*freqs[stim_type1]/1000);
+#     temp_tone = np.sin(tone_t*2*math.pi*freqs[stim_type1]/1000);
     
-    sound[stim_idx:(stim_idx+tone_len)] = temp_tone
+#     sound[stim_idx:(stim_idx+tone_len)] = temp_tone
 
-sound_n = sound + np.random.randn(sound_len)*0.3
+# sound_n = sound + np.random.randn(sound_len)*0.3
 
-plt.figure()
-plt.plot(sound_t,sound_n)
+# plt.figure()
+# plt.plot(sound_t,sound_n)
 
-windowsize1 = round(Fs * 0.0032);
-noverlap1 = round(Fs * 0.0032 * .50);
-nfft1 = round(Fs * 0.0032);
+# windowsize1 = round(Fs * 0.0032);
+# noverlap1 = round(Fs * 0.0032 * .50);
+# nfft1 = round(Fs * 0.0032);
 
-spec1 = signal.spectrogram(sound_n, fs=Fs, nperseg=windowsize1, noverlap=noverlap1, nfft=nfft1)
+# spec1 = signal.spectrogram(sound_n, fs=Fs, nperseg=windowsize1, noverlap=noverlap1, nfft=nfft1)
 
-plt.figure()
-plt.imshow(spec1[2], extent = [spec1[1][0], spec1[1][-1], spec1[0][0], spec1[0][-1]], aspect=.0001,origin='lower')
+# plt.figure()
+# plt.imshow(spec1[2], extent = [spec1[1][0], spec1[1][-1], spec1[0][0], spec1[0][-1]], aspect=.0001,origin='lower')
 
 
 #%%
@@ -126,8 +127,8 @@ input_sig = torch.zeros(input_size, T)
 
 #%%
 
-plt.figure();
-plt.imshow(input_sig[:,0:300]);
+# plt.figure();
+# plt.imshow(input_sig[:,0:300]);
 
 #%%
 
@@ -219,15 +220,39 @@ plt.imshow(frame1[:,:,1])
 
 # skimage.io.imsave('test2.tif', frame2)
 
+
+#%% for getting sorting order from linkage
+def seriation(Z,N,cur_index):
+    '''
+        input:
+            - Z is a hierarchical tree (dendrogram)
+            - N is the number of points given to the clustering process
+            - cur_index is the position in the tree for the recursive traversal
+        output:
+            - order implied by the hierarchical tree Z
+            
+        seriation computes the order implied by a hierarchical tree (dendrogram)
+    '''
+    if cur_index < N:
+        return [cur_index]
+    else:
+        left = int(Z[cur_index-N,0])
+        right = int(Z[cur_index-N,1])
+        return (seriation(Z,N,left) + seriation(Z,N,right))
+
+
+#%%
+flat_dist_met = pdist(rates_all, metric='cosine');
+cs = 1- squareform(flat_dist_met);
+res_linkage = linkage(flat_dist_met, method='average')
+
+N = len(cs)
+res_ord = seriation(res_linkage,N, N + N -2)
+    
 #%%
 
-cs = cosine_similarity(rates_all)
+cs_ord = 1- squareform(pdist(rates_all[res_ord], metric='cosine'));
 
 plt.figure()
-plt.imshow(cs)
-
-
-hier = AgglomerativeClustering(affinity='cosine', linkage='average')
-hier.fit(rates_all)
-
-plot_dendrogram(hier, truncate_mode='level', p=3)
+plt.imshow(cs_ord)
+plt.title('cosine similarity sorted')

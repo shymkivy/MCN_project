@@ -17,7 +17,10 @@ nfft = round(Fs * 0.0032); %0.0032 s
 
 [s, fr, ti] = spectrogram(y,windowsize,noverlap,nfft,Fs,'yaxis');
 
-
+fig1 = figure;
+imagesc(ti,fr/1000,abs(s));
+fig1.CurrentAxes.YDir = 'normal';
+fig1.Children.CLim = [0 10];
 
 
 %%
@@ -31,13 +34,7 @@ data_clust = load([fpath '\' fname_clust]);
 call_time = data_det.Calls(1,:).Box(1);
 
 
-%% plots
 
-fig1 = figure; hold on; axis tight;
-imagesc(ti,fr/1000,abs(s));
-fig1.CurrentAxes.YDir = 'normal';
-fig1.Children.CLim = [0 10];
-plot(data_det.Calls(2,:).Box(1), data_det.Calls(2,:).Box(2), 'o')
 
 
 
