@@ -106,5 +106,7 @@ fig1.CurrentAxes.YDir = 'normal';
 %%
 output_mat = zeros(num_voc, numel(ti));
 
+for 
+
 
 

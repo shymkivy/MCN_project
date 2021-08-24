@@ -340,6 +340,13 @@ end
 
 % clust 5 ok
 
+figure; histogram(voc_data.voc_trace_duration)
+title('voc duration')
 
+figure; histogram(voc_data.voc_trace_bandwidth)
+title('voc bandwidth')
+
+figure; histogram(voc_data.Box(:,2))
+title('voc lower')
 
 
