@@ -18,6 +18,7 @@ from sklearn.cluster import AgglomerativeClustering
 from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.spatial.distance import pdist, squareform
 from scipy import signal
+from scipy.io import loadmat
 import skimage.io
 import math
 
@@ -34,7 +35,7 @@ T = 10000;
 g = 5;
 
 dt = 1;
-tau = 10;
+tau = 1;
 alpha = dt/tau;
 
 
@@ -55,7 +56,7 @@ tanh1 = nn.Tanh();
 w = torch.empty(hidden_size, hidden_size)
 nn.init.normal_(w, mean=0.0, std = 1)
 
-std1 = g/np.sqrt(hidden_size);
+std1 = 100/np.sqrt(hidden_size);
 
 w = w - np.mean(w.detach().numpy());
 w = w * std1;

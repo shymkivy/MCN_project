@@ -8,7 +8,13 @@ function y = f_squeak_generator(squeak_type, Fs, duration, freq_low, freq_high)
 % 7 parabola up
 % 8 parabola down
 
-if squeak_type == 1
+freq_low = freq_low*1000;
+freq_high = freq_high * 1000;
+
+if squeak_type == 0
+    t = 0:1/Fs:duration;
+    y = sin(t*2*pi*freq_low);
+elseif squeak_type == 1
     t = 0:1/Fs:duration;
     y = chirp(t,freq_low,duration,freq_high);
 elseif squeak_type == 2
