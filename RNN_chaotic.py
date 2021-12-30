@@ -35,7 +35,7 @@ T = 10000;
 g = 5;
 
 dt = 1;
-tau = 1;
+tau = 10;
 alpha = dt/tau;
 
 
