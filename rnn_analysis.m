@@ -3,44 +3,46 @@ close all;
 
 %%
 
-fpath =  'C:\Users\Administrator\Desktop\yuriy\RNN_project\data\';
+fpath =  'C:\Users\ys2605\Desktop\stuff\RNN_stuff\RNN_data\';
 
-fname = 'rnn_out_8_25_21_1';
+fname = 'rnn_out_12_31_21_10tones_200reps_notrain.mat';
 
 %fname = 'rnn_out_8_25_21_1_tones_g_tau10.mat';
-
 %fname = 'rnn_out_8_25_21_1_tones_g_tau10_bias-2.mat';
-
 %fname = 'rnn_out_8_25_21_1_tones_g_tau10_notrain.mat';
-
 %fname = 'rnn_out_8_25_21_1_tones_g_tau10.mat';
-
 %fname = 'rnn_out_8_25_21_1_tones_g_tau10_trained_noise_resp.mat';
-
 %fname = 'rnn_out_8_25_21_1_tones_g_tau10_notrain_noise_resp.mat';
 %%
 
 data = load([fpath fname]);
 
 %%
+T = data.ti;
+
+%%
 figure;
 imagesc(data.rates_all)
 %%
 
+
 num_plot_cells = 10;
 
 plt_cells = randsample(data.hidden_size, num_plot_cells);
+
+num_plot_t = 5000;
 
 figure; 
 subplot(6,1,1:5)
 hold on; axis tight;
 for n_cell = 1:num_plot_cells
     shift = (n_cell - 1) * 2;
-    plot(data.rates_all(plt_cells(1),end-1000:end) + shift)
+    plot(T(end-num_plot_t:end), data.rates_all(plt_cells(n_cell),end-num_plot_t:end) + shift)
 end
-subplot(6,1,6);
-imagesc(data.target(:,end-1000:end))
 
+subplot(6,1,6);
+imagesc(T(end-num_plot_t:end),[], data.target(:,end-num_plot_t:end))
+xlabel('sec')
 %%
 
 x = corr(data.target(2,:)', data.rates_all');
@@ -54,9 +56,10 @@ figure; histogram(x)
 figure; 
 ax1 = subplot(2,1,1);
 hold on; axis tight;
-plot(data.rates_all(max_idx,:) + shift)
+plot(T, data.rates_all(max_idx,:))
 ax2 = subplot(2,1,2);
-imagesc(data.target(:,:));
+imagesc(T, [], data.target(:,:));
+xlabel('sec')
 linkaxes([ax1, ax2], 'x');
 
 %%
@@ -127,7 +130,6 @@ linkaxes([ax1, ax2], 'x');
 
 %%
 
-
 stim_frame_index = find(diff(data.target(2,:))>0);
 
 stim_data_sort = f_get_stim_trig_resp(data.target(2,:), stim_frame_index, [5 30]);
@@ -148,13 +150,17 @@ figure; plot(explained)
 
 %%
 
+base_time = 0.2;
+resp_time = 0.8;
 
+dt = data.dt;
 n_tr = 3;
 
 stim_frame_index = find(diff(data.target(n_tr,:))>0);
-stim_data_sort = f_get_stim_trig_resp(data.target(n_tr,:), stim_frame_index, [5 30]);
 
-trial_data_sort = f_get_stim_trig_resp(data.rates_all, stim_frame_index, [5 30]);
+stim_data_sort = f_get_stim_trig_resp(data.target(n_tr,:), stim_frame_index, round([base_time resp_time]/dt));
+
+trial_data_sort = f_get_stim_trig_resp(data.rates_all, stim_frame_index, round([base_time resp_time]/dt));
 
 trial_data_sort_2d = reshape(trial_data_sort, 250, []);
 
@@ -174,7 +180,6 @@ x2 = reshape(trial_data_sort, [], 200);
 hclust3 = f_hcluster_wrap(x2',hparams);
 
 trial_data_sort_sort = trial_data_sort(hclust.dend_order,:,hclust3.dend_order);
-
 trial_data_sort_sort_2d = reshape(trial_data_sort_sort, 250, []);
 
 
@@ -185,9 +190,9 @@ figure; imagesc(trial_data_sort_sort_2d)
 %%
 
 stim_frame_index = find(diff(data.target(n_tr,:))>0);
-stim_data_sort2 = f_get_stim_trig_resp(data.target(:,:), stim_frame_index, [50 30]);
+stim_data_sort2 = f_get_stim_trig_resp(data.target(:,:), stim_frame_index, round([1 1]/dt));
 
-x = stim_data_sort2(:,:, hclust3.clust_ident == 2);
+x = stim_data_sort2(:,:, hclust3.clust_ident == 3);
 
 figure; imagesc(reshape(x, 11, []))
 
