@@ -16,6 +16,7 @@ from f_RNN_chaotic import *
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+from matplotlib import colors
 from random import sample, random
 import math
 
@@ -51,7 +52,7 @@ load_input = 1;
 compute_loss = 1;
 train_RNN = 0;
 save_RNN = 0;
-load_RNN = 1;
+load_RNN = 0;
 
 #%% loading inputs
 
@@ -228,6 +229,88 @@ f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all)
 
 
 #%% analyze tuning 
+
+plt.close('all')
+
+
+n_cell = 0
+n_tr = 0
+
+num_stim = 10;
+num_cells = 10;
+
+trial_ave_win = [-5,60]
+
+num_t = trial_ave_win[1] - trial_ave_win[0]
+
+stim_times = np.diff(output_mat[1,:], prepend=0)
+on_times = np.where(np.greater(stim_times, 0))[0]
+
+num_tr = on_times.shape[0] - 5
+
+colors1 = plt.cm.jet(np.linspace(0, 1, num_stim))
+
+plot_t = np.asarray(range(trial_ave_win[0], trial_ave_win[1]))
+
+trial_all = np.zeros((num_cells, num_tr, num_t, num_stim))
+
+for n_stim in range(num_stim):
+    
+    stim_times = np.diff(output_mat[n_stim+1,:], prepend=0)
+    on_times_trace = np.greater(stim_times, 0)
+    off_times_trace = np.less(stim_times, 0)
+
+    on_times = np.where(on_times_trace)[0]
+    off_times = np.where(off_times_trace)[0]
+    
+    for n_cell in range(num_cells):
+        cell_trace = rates_all[n_cell,:,0]
+        
+        for n_tr in range(num_tr):
+            trial_all[n_cell, n_tr,:,n_stim] = cell_trace[on_times[n_tr] + trial_ave_win[0]:on_times[n_tr] + trial_ave_win[1]]
+  
+
+  
+for n_cell in range(num_cells):   
+    trial_ave = np.mean(trial_all[n_cell,:,:,:], axis=0)
+    
+    base = np.mean(trial_ave[:-trial_ave_win[0],:], axis=0)
+     
+    trial_ave_n = trial_ave - base
+    
+    plt.figure()
+    for n_st in range(num_stim):
+        plt.plot(plot_t, trial_ave_n[:,n_st], color=colors1[n_st,:])
+    plt.title('cell %d' % n_cell)
+    
+    
+    
+    plt.figure()
+    plt.imshow(trial_ave_n.T, extent=[trial_ave_win[0],trial_ave_win[1],0, num_stim])
+    plt.colorbar()
+
+plt.figure()
+plt.imshow(colors1.reshape((10,1,4)))
+plt.title('colormap')
+
+
+plt.figure()
+plt.imshow(trial_all)
+
+plt.figure()
+ax1 = plt.subplot(411)
+plt.plot(cell_trace)
+plt.title('cell %d' % n_cell)
+plt.subplot(412, sharex=ax1)
+plt.plot(on_times_trace)
+plt.title('on times')
+plt.subplot(413, sharex=ax1)
+plt.plot(off_times_trace)
+plt.title('off times')
+plt.subplot(414, sharex=ax1)
+plt.imshow(output_mat, aspect="auto")
+
+
 
 
 
