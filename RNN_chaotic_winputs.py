@@ -29,34 +29,33 @@ from scipy import signal
 from scipy.io import loadmat, savemat
 import skimage.io
 
-
-#%%
-plt.close('all')
-
-
-
 #%% loading inputs
-fpath = 'C://Users//ys2605//Desktop//stuff//RNN_stuff//RNN_data//'
 
-#fname = 'sim_spec_1_stim_8_24_21.mat'
-#fname = 'sim_spec_10complex_200rep_stim_8_25_21_1.mat'
-#fname = 'sim_spec_10tones_200rep_stim_8_25_21_1.mat'
-
-fname_input = 'sim_spec_10tones_100reps_0.5isi_50dt_1_1_22_23h_17m.mat';
 
 fname_RNN_load = 'test1';
 
 
 #%% params
-load_input = 1;
+load_input = 0;
 compute_loss = 1;
-train_RNN = 0;
+train_RNN = 1;
 save_RNN = 0;
 load_RNN = 0;
 
 #%% loading inputs
 
+plt.close('all')
+
 if load_input:
+    
+    fpath = 'C://Users//ys2605//Desktop//stuff//RNN_stuff//RNN_data//'
+
+    #fname = 'sim_spec_1_stim_8_24_21.mat'
+    #fname = 'sim_spec_10complex_200rep_stim_8_25_21_1.mat'
+    #fname = 'sim_spec_10tones_200rep_stim_8_25_21_1.mat'
+
+    fname_input = 'sim_spec_10tones_100reps_0.5isi_50dt_1_1_22_23h_17m.mat';
+    
     data_mat = loadmat(fpath+fname_input)
     
     data1 = data_mat['spec_data']
@@ -76,34 +75,129 @@ if load_input:
     T = input_mat.shape[1];             # time steps of inputs and target outputs
     dt = input_T[1] - input_T[0];        #1;
     
-else:
-    T = 50000;
-    input_size = 50;
-    output_size = 11;
-    dt = .01;
+    plt.figure()
+    plt.imshow(input_mat)
     
-    input_mat = np.zeros([input_size, T])
-    output_mat = np.zeros([output_size, T])
+    
+    tau = .5;              # for to bin stim
+    alpha = dt/tau;         # 
+    
+    plt.figure()
+    plt.plot(input_mat.std(axis=0))
+    
+else:
+    
+    stim_duration = 0.5
+    isi_suration = 0.5
+    
+    num_train_trials = 500;
+    num_test_trials = 100;
+    
+    input_size = 50;
+    num_stim = 10;
+    dt = .05;
+    tau = .5;              # in sec
+    alpha = dt/tau;         # 
+    
+    input_noise_std = 1/10
+    
+    stim_t_std = 0
+    #stim_t_std = 3
+    
+    output_size = num_stim + 1
+    
+    stim_bins = np.round(stim_duration/dt).astype(int)
+    isi_bins = np.round(isi_suration/dt).astype(int)
+    stim_loc = np.round(np.linspace(0, input_size, num_stim+2))[1:-1].astype(int)
+    
+    isi_lead = np.floor(isi_bins/2).astype(int)
+    
+    gaus_x_range = np.round(4*stim_t_std).astype(int)
+    gx = np.arange(-gaus_x_range, (gaus_x_range+1))
+    gaus_t = np.exp(-(gx/stim_t_std)**2/2).reshape((gaus_x_range*2+1,1))
+    
+    #plt.figure()
+    #plt.plot(gx, gaus_t)
+    # (num_stim_inputs x num_t x num_trial_types)
+    stim_temp_all = np.zeros((input_size, stim_bins + isi_bins, num_stim))
+    # (num_stim_outputs x num_t x num_trial_types)
+    out_temp_all = np.zeros((output_size, stim_bins + isi_bins, num_stim))
+    for n_st in range(num_stim):
+        stim_temp = np.zeros((input_size, stim_bins + isi_bins))
+        stim_temp[stim_loc[n_st], isi_lead:(isi_lead+stim_bins)] = 1
+        
+        if stim_t_std:
+            stim_temp = signal.convolve(stim_temp, gaus_t, mode="same")
+        
+        stim_temp_all[:,:,n_st] = stim_temp
+        
+        out_temp = np.zeros((output_size, stim_bins + isi_bins))
+        out_temp[n_st+1, isi_lead:(isi_lead+stim_bins)] = 1
+        out_temp[0, :isi_lead] = 1
+        out_temp[0, (isi_lead+stim_bins):] = 1
+        
+        out_temp_all[:,:,n_st] = out_temp
+        
+        # plt.figure()
+        # plt.subplot(121)
+        # plt.imshow(stim_temp)
+        # plt.subplot(122)
+        # plt.imshow(out_temp)
+      
+    trials_train = np.floor(np.random.random(num_train_trials)*num_stim).astype(int)
+    trials_test = np.floor(np.random.random(num_test_trials)*num_stim).astype(int)
+    
+    T = (stim_bins + isi_bins) * len(trials_train)
+    T_test = (stim_bins + isi_bins) * len(trials_test)
+    
+    input_mat = stim_temp_all[:,:,trials_train].reshape((input_size, T), order='F') + np.random.normal(0,input_noise_std,(input_size, T))
+    output_mat = out_temp_all[:,:,trials_train].reshape((output_size, T), order='F')
+    
+    input_mat_test = stim_temp_all[:,:,trials_test].reshape((input_size, T_test), order='F') + np.random.normal(0,input_noise_std,(input_size, T_test))
+    output_mat_test = out_temp_all[:,:,trials_test].reshape((output_size, T_test), order='F')
+    
+    # stim_vec = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    # stim_trace = stim_temp_all[:,:,stim_vec].reshape((input_size, (stim_bins + isi_bins) * len(stim_vec)), order='F')
+        
+    # count = np.zeros((num_stim))
 
+    # for n_tr in range(num_stim):
+    #     count[n_tr] = np.sum(trials_train==n_tr)
+    #     #count[n_tr] = np.sum(np.logical_and(np.less(trials, n_tr+1), np.greater_equal(trials, n_tr)))
 
-#%%
-# plt.figure()
-# plt.imshow(input_mat[:,0:5000],  aspect=10)
+    # plt.figure()
+    # plt.plot(count)
+    
 
-# plt.figure()
-# plt.imshow(output_mat[:,0:5000],  aspect=100)
+spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])
 
+plt.figure()
+ax1 = plt.subplot(spec3[0])
+ax1.plot(input_mat.std(axis=0))
+plt.title('inputs std; %d inputs' % input_size)
+plt.subplot(spec3[1], sharex=ax1)
+plt.plot(input_mat.mean(axis=0))
+plt.title('inputs mean')
+plt.subplot(spec3[2], sharex=ax1)
+plt.plot(input_mat.max(axis=0))
+plt.title('inputs max')
+
+spec2 = gridspec.GridSpec(ncols=1, nrows=2, height_ratios=[1, 1])
+
+plt.figure()
+ax1 = plt.subplot(spec2[0])
+ax1.imshow(input_mat, aspect="auto")
+plt.title('inputs; %d stim; %d intups; std=%.1f' % (num_stim, input_size, stim_t_std))
+plt.subplot(spec2[1], sharex=ax1)
+plt.imshow(output_mat, aspect="auto")
+plt.title('outputs')
+    
 
 #%% initialize RNN 
 
 hidden_size = 250;      # number of neurons
 
 g = 5;          # recurrent connection strength 
-
-
-tau = .5;              # in sec
-alpha = dt/tau;         # 
-
 
 #%% normalize inputs and set as tensor arrays
 
@@ -113,9 +207,15 @@ alpha = dt/tau;         #
 
 input_mat_n = input_mat - np.mean(input_mat)
 input_mat_n = input_mat_n/np.std(input_mat_n)
-
 input_sig = torch.tensor(input_mat_n[:,0:T]).float()
+
+input_mat_test_n = input_mat_test - np.mean(input_mat_test)
+input_mat_test_n = input_mat_test_n/np.std(input_mat_test_n)
+input_sig_test = torch.tensor(input_mat_test_n[:,0:T_test]).float()
+
 target = torch.tensor(output_mat[:,0:T]).float()
+target_test = torch.tensor(output_mat_test[:,0:T_test]).float()
+
 
 plt.figure()
 plt.plot(np.std(input_mat_n, axis=0))
@@ -127,6 +227,8 @@ rnn = RNN_chaotic(input_size, hidden_size, output_size, alpha)
 #%% initialize rate and weights
 
 rate = rnn.init_rate();
+rate_test = rnn.init_rate();
+
 rnn.init_weights(g)
 
 # can adjust bias here 
@@ -148,6 +250,9 @@ loss_all_all = [];
 iteration1 = [];
 iteration1.append(0);
 
+iteration_test = []
+iteration_test.append(0);
+
 if train_RNN:
     learning_rate = 0.005
     optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)   
@@ -158,6 +263,10 @@ num_cycles = 1;
 rates_all = np.zeros((hidden_size, T, num_cycles));
 outputs_all = np.zeros((output_size, T, num_cycles));
 loss_all = np.zeros((T, num_cycles));
+
+rates_all_test = np.zeros((hidden_size, T_test))
+outputs_all_test = np.zeros((output_size, T));
+loss_all_test = np.zeros((T));
 
 #%%
 if load_RNN:
@@ -196,12 +305,36 @@ for n_cyc in range(num_cycles):
 print('Done')
     
 #%%
+
+
 if save_RNN:
     torch.save(rnn.state_dict(), fpath+fname_RNN_load)
 
-#%%
+#%% test
 
+for n_t in range(T_test-1):
+    
+    output, rate_new = rnn.forward(input_sig_test[:,n_t], rate_test)
+    
+    rates_all_test[:,n_t+1] = rate_new.detach().numpy()[0,:];
+    
+    rate_test = rate_new.detach();
+
+    outputs_all_test[:,n_t+1] = output.detach().numpy()[0,:];
+    
+    target2 = torch.argmax(target_test[:,n_t]) * torch.ones(1) # torch.tensor()
+    loss2 = loss(output, target2.long())
+      
+    loss_all_test[n_t] = loss2.item()
+    iteration_test.append(iteration_test[-1]+1);
+
+print('Done')
+    
+
+#%%
 f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'final ')
+
+f_plot_rnn_params(rnn, rate_test, input_sig_test, text_tag = 'final test ')
 
 #%%
 
@@ -210,6 +343,14 @@ sm_bin = round(1/dt);
 kernel = np.ones(sm_bin)/sm_bin
 
 loss_all_smooth = np.convolve(loss_all_all, kernel, mode='same')
+
+loss_all_test_smooth = np.convolve(loss_all_test, kernel, mode='same')
+ 
+#%%
+
+f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all)
+
+f_plot_rates(rates_all_test, input_sig_test, target_test, outputs_all_test, loss_all_test)
 
 
 #%%
@@ -220,12 +361,6 @@ loss_all_smooth = np.convolve(loss_all_all, kernel, mode='same')
 
 # plt.figure()
 # plt.plot(loss_all_smooth)
-
-
-
-#%%
-
-f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all)
 
 
 #%% analyze tuning 
