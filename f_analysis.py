@@ -32,7 +32,7 @@ def seriation(Z,N,cur_index):
     
 #%%
 
-def f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all):
+def f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all, title_tag):
     num_plots = 10;
     
     plot_cells = np.sort(sample(range(rates_all.shape[0]), num_plots));
@@ -42,10 +42,10 @@ def f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all):
     ax1 = plt.subplot(spec[0])
     for n_plt in range(num_plots):  
         shift = n_plt*2.5    
-        ax1.plot(rates_all[plot_cells[n_plt],:,-1]+shift)
-    plt.title('example cells')
+        ax1.plot(rates_all[plot_cells[n_plt],:]+shift)
+    plt.title(title_tag + ' example cells')
     plt.subplot(spec[1], sharex=ax1)
-    plt.plot(np.mean(rates_all[:,:,-1], axis=0))
+    plt.plot(np.mean(rates_all[:,:], axis=0))
     plt.title('population average')
     plt.subplot(spec[2], sharex=ax1)
     plt.imshow(input_sig.data, aspect="auto") #   , aspect=10
@@ -54,10 +54,10 @@ def f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all):
     plt.imshow(target.data, aspect="auto") # , aspect=100
     plt.title('target')
     plt.subplot(spec[4], sharex=ax1)
-    plt.imshow(outputs_all[:,:,-1], aspect="auto") # , aspect=100
+    plt.imshow(outputs_all[:,:], aspect="auto") # , aspect=100
     plt.title('outputs')
     plt.subplot(spec[5], sharex=ax1)
-    plt.plot(loss_all[:,-1]) # , aspect=100
+    plt.plot(loss_all) # , aspect=100
     plt.title('outputs')
 
 #%%

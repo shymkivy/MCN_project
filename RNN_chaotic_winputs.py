@@ -5,11 +5,14 @@ Created on Thu Aug 19 15:33:58 2021
 @author: Administrator
 """
 
-#%%
-
 import sys
+
+path1 = 'C:/Users/yuriy/Desktop/stuff/RNN_stuff/'
+
 #sys.path.append('C:\\Users\\ys2605\\Desktop\\stuff\\mesto\\');
-sys.path.append('/Users/ys2605/Desktop/stuff/RNN_stuff/RNN_scripts');
+#sys.path.append('/Users/ys2605/Desktop/stuff/RNN_stuff/RNN_scripts');
+sys.path.append(path1 + 'RNN_scripts');
+
 from f_analysis import *
 from f_RNN_chaotic import *
 
@@ -32,15 +35,18 @@ import skimage.io
 #%% loading inputs
 
 
-fname_RNN_load = 'test1';
+#fname_RNN_load = 'test_20k_std3'
+fname_RNN_load = 'test_20k';
 
+fname_RNN_save = 'test_20k_std3'
 
 #%% params
-load_input = 0;
-compute_loss = 1;
-train_RNN = 1;
-save_RNN = 0;
-load_RNN = 0;
+load_input = 0
+compute_loss = 1
+train_RNN = 0
+save_RNN = 1
+load_RNN = 1
+plot_deets = 0
 
 #%% loading inputs
 
@@ -48,7 +54,7 @@ plt.close('all')
 
 if load_input:
     
-    fpath = 'C://Users//ys2605//Desktop//stuff//RNN_stuff//RNN_data//'
+    fpath = path1 + '/RNN_data/'
 
     #fname = 'sim_spec_1_stim_8_24_21.mat'
     #fname = 'sim_spec_10complex_200rep_stim_8_25_21_1.mat'
@@ -90,8 +96,8 @@ else:
     stim_duration = 0.5
     isi_suration = 0.5
     
-    num_train_trials = 500;
-    num_test_trials = 100;
+    num_train_trials = 50000;
+    num_test_trials = 1000;
     
     input_size = 50;
     num_stim = 10;
@@ -101,8 +107,8 @@ else:
     
     input_noise_std = 1/10
     
-    stim_t_std = 0
-    #stim_t_std = 3
+    #stim_t_std = 0
+    stim_t_std = 3
     
     output_size = num_stim + 1
     
@@ -115,6 +121,7 @@ else:
     gaus_x_range = np.round(4*stim_t_std).astype(int)
     gx = np.arange(-gaus_x_range, (gaus_x_range+1))
     gaus_t = np.exp(-(gx/stim_t_std)**2/2).reshape((gaus_x_range*2+1,1))
+    gaus_t = gaus_t/np.sum(gaus_t)
     
     #plt.figure()
     #plt.plot(gx, gaus_t)
@@ -169,28 +176,29 @@ else:
     # plt.plot(count)
     
 
-spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])
-
-plt.figure()
-ax1 = plt.subplot(spec3[0])
-ax1.plot(input_mat.std(axis=0))
-plt.title('inputs std; %d inputs' % input_size)
-plt.subplot(spec3[1], sharex=ax1)
-plt.plot(input_mat.mean(axis=0))
-plt.title('inputs mean')
-plt.subplot(spec3[2], sharex=ax1)
-plt.plot(input_mat.max(axis=0))
-plt.title('inputs max')
-
-spec2 = gridspec.GridSpec(ncols=1, nrows=2, height_ratios=[1, 1])
-
-plt.figure()
-ax1 = plt.subplot(spec2[0])
-ax1.imshow(input_mat, aspect="auto")
-plt.title('inputs; %d stim; %d intups; std=%.1f' % (num_stim, input_size, stim_t_std))
-plt.subplot(spec2[1], sharex=ax1)
-plt.imshow(output_mat, aspect="auto")
-plt.title('outputs')
+if plot_deets:
+    spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])
+    
+    plt.figure()
+    ax1 = plt.subplot(spec3[0])
+    ax1.plot(input_mat.std(axis=0))
+    plt.title('inputs std; %d inputs' % input_size)
+    plt.subplot(spec3[1], sharex=ax1)
+    plt.plot(input_mat.mean(axis=0))
+    plt.title('inputs mean')
+    plt.subplot(spec3[2], sharex=ax1)
+    plt.plot(input_mat.max(axis=0))
+    plt.title('inputs max')
+    
+    spec2 = gridspec.GridSpec(ncols=1, nrows=2, height_ratios=[1, 1])
+    
+    plt.figure()
+    ax1 = plt.subplot(spec2[0])
+    ax1.imshow(input_mat, aspect="auto")
+    plt.title('inputs; %d stim; %d intups; std=%.1f' % (num_stim, input_size, stim_t_std))
+    plt.subplot(spec2[1], sharex=ax1)
+    plt.imshow(output_mat, aspect="auto")
+    plt.title('outputs')
     
 
 #%% initialize RNN 
@@ -246,7 +254,7 @@ np.std(w1)
 #%% set learning params
 
 loss = nn.NLLLoss()
-loss_all_all = [];
+
 iteration1 = [];
 iteration1.append(0);
 
@@ -260,55 +268,48 @@ if train_RNN:
 #%%
 num_cycles = 1;
 
-rates_all = np.zeros((hidden_size, T, num_cycles));
-outputs_all = np.zeros((output_size, T, num_cycles));
-loss_all = np.zeros((T, num_cycles));
+rates_all = np.zeros((hidden_size, T));
+outputs_all = np.zeros((output_size, T));
+loss_all = np.zeros((T));
 
 rates_all_test = np.zeros((hidden_size, T_test))
-outputs_all_test = np.zeros((output_size, T));
-loss_all_test = np.zeros((T));
+outputs_all_test = np.zeros((output_size, T_test));
+loss_all_test = np.zeros((T_test));
 
 #%%
 if load_RNN:
-    rnn.load_state_dict(torch.load(fpath+fname_RNN_load))
+    rnn.load_state_dict(torch.load(path1 + '/RNN_data/' + fname_RNN_load))
 
-#%%
+#%% train
 
-for n_cyc in range(num_cycles):
+for n_t in range(T-1):
     
-    print('cycle ' + str(n_cyc+1) + ' of ' + str(num_cycles))
+    if train_RNN:
+        optimizer.zero_grad()
     
-    for n_t in range(T-1):
-        
-        if train_RNN:
-            optimizer.zero_grad()
-        
-        output, rate_new = rnn.forward(input_sig[:,n_t], rate)
-        
-        rates_all[:,n_t+1,n_cyc] = rate_new.detach().numpy()[0,:];
-        
-        rate = rate_new.detach();
+    output, rate_new = rnn.forward(input_sig[:,n_t], rate)
     
-        outputs_all[:,n_t+1,n_cyc] = output.detach().numpy()[0,:];
+    rates_all[:,n_t+1] = rate_new.detach().numpy()[0,:];
+    
+    rate = rate_new.detach();
+
+    outputs_all[:,n_t+1] = output.detach().numpy()[0,:];
+    
+    target2 = torch.argmax(target[:,n_t]) * torch.ones(1) # torch.tensor()
+    loss2 = loss(output, target2.long())
+    
+    if train_RNN:
+        loss2.backward() # retain_graph=True
+        optimizer.step()
         
-        target2 = torch.argmax(target[:,n_t]) * torch.ones(1) # torch.tensor()
-        loss2 = loss(output, target2.long())
-        
-        if train_RNN:
-            loss2.backward() # retain_graph=True
-            optimizer.step()
-            
-        loss_all[n_t,n_cyc] = loss2.item()
-        loss_all_all.append(loss2.item())
-        iteration1.append(iteration1[-1]+1);
+    loss_all[n_t] = loss2.item()
+    iteration1.append(iteration1[-1]+1);
 
 print('Done')
     
 #%%
-
-
-if save_RNN:
-    torch.save(rnn.state_dict(), fpath+fname_RNN_load)
+if save_RNN and train_RNN:
+    torch.save(rnn.state_dict(), path1 + '/RNN_data/' + fname_RNN_save)
 
 #%% test
 
@@ -334,33 +335,31 @@ print('Done')
 #%%
 f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'final ')
 
-f_plot_rnn_params(rnn, rate_test, input_sig_test, text_tag = 'final test ')
-
 #%%
 
-sm_bin = round(1/dt);
+sm_bin = round(1/dt)*50;
 
 kernel = np.ones(sm_bin)/sm_bin
 
-loss_all_smooth = np.convolve(loss_all_all, kernel, mode='same')
+loss_all_smooth = np.convolve(loss_all, kernel, mode='valid')
 
-loss_all_test_smooth = np.convolve(loss_all_test, kernel, mode='same')
- 
-#%%
+loss_all_test_smooth = np.convolve(loss_all_test, kernel, mode='valid')
 
-f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all)
-
-f_plot_rates(rates_all_test, input_sig_test, target_test, outputs_all_test, loss_all_test)
-
+plt.figure()
+plt.plot(loss_all_smooth)
+plt.plot(loss_all_test_smooth)
+plt.legend(('train', 'test'))
 
 #%%
 
-# plt.figure()
-# plt.plot(loss_all_all)
-# plt.plot(loss_all_smooth)
+f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all, 'train')
 
-# plt.figure()
-# plt.plot(loss_all_smooth)
+f_plot_rates(rates_all_test, input_sig_test, target_test, outputs_all_test, loss_all_test, 'test')
+
+
+#%%
+
+
 
 
 #%% analyze tuning 
@@ -371,83 +370,71 @@ plt.close('all')
 n_cell = 0
 n_tr = 0
 
-num_stim = 10;
-num_cells = 10;
+num_cells = hidden_size;
 
-trial_ave_win = [-5,60]
+trial_ave_win = [-5,15]
 
 num_t = trial_ave_win[1] - trial_ave_win[0]
 
-stim_times = np.diff(output_mat[1,:], prepend=0)
+stim_times = np.diff(output_mat_test[1,:], prepend=0)
 on_times = np.where(np.greater(stim_times, 0))[0]
-
-num_tr = on_times.shape[0] - 5
 
 colors1 = plt.cm.jet(np.linspace(0, 1, num_stim))
 
 plot_t = np.asarray(range(trial_ave_win[0], trial_ave_win[1]))
 
-trial_all = np.zeros((num_cells, num_tr, num_t, num_stim))
-
+on_times_all = []
+num_trials_all = np.zeros((num_stim), dtype=int)
 for n_stim in range(num_stim):
-    
-    stim_times = np.diff(output_mat[n_stim+1,:], prepend=0)
+    stim_times = np.diff(output_mat_test[n_stim+1,:], prepend=0)
     on_times_trace = np.greater(stim_times, 0)
-    off_times_trace = np.less(stim_times, 0)
-
     on_times = np.where(on_times_trace)[0]
-    off_times = np.where(off_times_trace)[0]
     
-    for n_cell in range(num_cells):
-        cell_trace = rates_all[n_cell,:,0]
+    on_times_all.append(on_times)
+    num_trials_all[n_stim] = len(on_times)
+
+
+trial_all = []
+trial_ave_all = np.zeros((num_cells, num_stim, num_t))
+
+for n_cell in range(num_cells):
+    cell_trace = rates_all_test[n_cell,:]
+    
+    trial_all_stim = []
+    
+    for n_stim in range(num_stim):
+        on_times = on_times_all[n_stim]
+        num_tr = num_trials_all[n_stim]
+        
+        trial_all2 = np.zeros((num_tr, num_t))
         
         for n_tr in range(num_tr):
-            trial_all[n_cell, n_tr,:,n_stim] = cell_trace[on_times[n_tr] + trial_ave_win[0]:on_times[n_tr] + trial_ave_win[1]]
-  
+            trial_all2[n_tr, :] = cell_trace[(on_times[n_tr] + trial_ave_win[0]):(on_times[n_tr] + trial_ave_win[1])]
+        trial_all_stim.append(trial_all2)
+        
+        trial_ave2 = np.sum(trial_all2, axis=0)
+        base = np.mean(trial_ave2[:-trial_ave_win[0]])
+        
+        trial_ave_all[n_cell, n_stim, :] = trial_ave2 - base
+        
+    trial_all.append(trial_all_stim)
 
-  
-for n_cell in range(num_cells):   
-    trial_ave = np.mean(trial_all[n_cell,:,:,:], axis=0)
-    
-    base = np.mean(trial_ave[:-trial_ave_win[0],:], axis=0)
-     
-    trial_ave_n = trial_ave - base
-    
-    plt.figure()
-    for n_st in range(num_stim):
-        plt.plot(plot_t, trial_ave_n[:,n_st], color=colors1[n_st,:])
-    plt.title('cell %d' % n_cell)
-    
-    
-    
-    plt.figure()
-    plt.imshow(trial_ave_n.T, extent=[trial_ave_win[0],trial_ave_win[1],0, num_stim])
-    plt.colorbar()
+trial_resp_all = np.mean(trial_ave_all[:,:,-trial_ave_win[0]:(-trial_ave_win[0]+stim_bins)], axis=2)
+
+trial_max_idx = np.argmax(trial_resp_all, axis=1)
+idx1_sort = trial_max_idx.argsort()
+
+trial_resp_all_sort = trial_resp_all[idx1,:]
 
 plt.figure()
-plt.imshow(colors1.reshape((10,1,4)))
-plt.title('colormap')
-
+plt.imshow(trial_resp_all_sort, aspect="auto")
 
 plt.figure()
-plt.imshow(trial_all)
+for n_st in range(num_stim):
+    pop_ave = trial_resp_all[trial_max_idx == n_st, :].mean(axis=0)
+    x_lab = np.arange(num_stim) - n_st
 
-plt.figure()
-ax1 = plt.subplot(411)
-plt.plot(cell_trace)
-plt.title('cell %d' % n_cell)
-plt.subplot(412, sharex=ax1)
-plt.plot(on_times_trace)
-plt.title('on times')
-plt.subplot(413, sharex=ax1)
-plt.plot(off_times_trace)
-plt.title('off times')
-plt.subplot(414, sharex=ax1)
-plt.imshow(output_mat, aspect="auto")
-
-
-
-
+    plt.plot(x_lab, pop_ave)
 
 
 
@@ -647,3 +634,34 @@ savemat(fpath+ save_fname, data_save)
 # x1 = i2h(input_sig[:,n_t]).data;
 # print(np.mean(np.asarray(x1).flatten()))
 # print(np.std(np.asarray(x1).flatten()))
+
+# for n_cyc in range(num_cycles):
+    
+#     print('cycle ' + str(n_cyc+1) + ' of ' + str(num_cycles))
+    
+#     for n_t in range(T-1):
+        
+#         if train_RNN:
+#             optimizer.zero_grad()
+        
+#         output, rate_new = rnn.forward(input_sig[:,n_t], rate)
+        
+#         rates_all[:,n_t+1,n_cyc] = rate_new.detach().numpy()[0,:];
+        
+#         rate = rate_new.detach();
+    
+#         outputs_all[:,n_t+1,n_cyc] = output.detach().numpy()[0,:];
+        
+#         target2 = torch.argmax(target[:,n_t]) * torch.ones(1) # torch.tensor()
+#         loss2 = loss(output, target2.long())
+        
+#         if train_RNN:
+#             loss2.backward() # retain_graph=True
+#             optimizer.step()
+            
+#         loss_all[n_t,n_cyc] = loss2.item()
+#         loss_all_all.append(loss2.item())
+#         iteration1.append(iteration1[-1]+1);
+
+# print('Done')
+
