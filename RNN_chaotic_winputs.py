@@ -7,7 +7,8 @@ Created on Thu Aug 19 15:33:58 2021
 
 import sys
 
-path1 = 'C:/Users/yuriy/Desktop/stuff/RNN_stuff/'
+#path1 = 'C:/Users/yuriy/Desktop/stuff/RNN_stuff/'
+path1 = 'C:/Users/ys2605/Desktop/stuff/RNN_stuff/'
 
 #sys.path.append('C:\\Users\\ys2605\\Desktop\\stuff\\mesto\\');
 #sys.path.append('/Users/ys2605/Desktop/stuff/RNN_stuff/RNN_scripts');
@@ -38,14 +39,14 @@ import skimage.io
 #fname_RNN_load = 'test_20k_std3'
 fname_RNN_load = 'test_20k';
 
-fname_RNN_save = 'test_20k_std3'
+fname_RNN_save = 'test_50k_std3'
 
 #%% params
 load_input = 0
 compute_loss = 1
-train_RNN = 0
+train_RNN = 1
 save_RNN = 1
-load_RNN = 1
+load_RNN = 0
 plot_deets = 0
 
 #%% loading inputs
