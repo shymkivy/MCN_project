@@ -16,6 +16,7 @@ sys.path.append(path1 + 'RNN_scripts');
 
 from f_analysis import *
 from f_RNN_chaotic import *
+from f_RNN_utils import *
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -33,151 +34,87 @@ from scipy import signal
 from scipy.io import loadmat, savemat
 import skimage.io
 
-#%% loading inputs
-
+#%% loading/saving RNN
 
 #fname_RNN_load = 'test_20k_std3'
 fname_RNN_load = 'test_20k';
 
-fname_RNN_save = 'test_50k_std3'
+fname_RNN_save = 'test_50k_std4'
 
 #%% params
-load_input = 0
+
 compute_loss = 1
 train_RNN = 1
 save_RNN = 1
 load_RNN = 0
-plot_deets = 0
+plot_deets = 1
 
-#%% loading inputs
+#%% input params
+
+params = {'stim_duration':          0.5,
+          'isi_suration':           0.5,
+          'num_train_trials':       50000,
+          'num_test_trials':        1000,
+          'input_size':             50,
+          'num_stim':               10,
+          'dt':                     0.05,
+          'tau':                    0.5,
+          'stim_t_std':             3,      # 3 or 0
+          'input_noise_std':        1/10,
+          'plot_deets':             1,
+          }
+
+
+alpha = params['dt']/params['tau'];         # 
+
+#%% generate train data
 
 plt.close('all')
 
-if load_input:
-    
-    fpath = path1 + '/RNN_data/'
 
-    #fname = 'sim_spec_1_stim_8_24_21.mat'
-    #fname = 'sim_spec_10complex_200rep_stim_8_25_21_1.mat'
-    #fname = 'sim_spec_10tones_200rep_stim_8_25_21_1.mat'
+# generate stim templates
 
-    fname_input = 'sim_spec_10tones_100reps_0.5isi_50dt_1_1_22_23h_17m.mat';
-    
-    data_mat = loadmat(fpath+fname_input)
-    
-    data1 = data_mat['spec_data']
-    print(data1.dtype)
-    
-    input_mat = data1[0,0]['spec_cut'];
-    fr_cut = data1[0, 0]['fr_cut'];
-    ti = data1[0, 0]['ti'];
-    voc_seq = data1[0, 0]['voc_seq'];
-    num_voc = data1[0, 0]['num_voc'];
-    output_mat = data1[0, 0]['output_mat'];
-    output_mat_delayed = data1[0, 0]['output_mat_delayed'];
-    input_T = data1[0, 0]['ti'][0];
-    
-    input_size = input_mat.shape[0];    # number of freqs in spectrogram
-    output_size = output_mat.shape[0];  # number of target output categories 
-    T = input_mat.shape[1];             # time steps of inputs and target outputs
-    dt = input_T[1] - input_T[0];        #1;
-    
-    plt.figure()
-    plt.imshow(input_mat)
-    
-    
-    tau = .5;              # for to bin stim
-    alpha = dt/tau;         # 
-    
-    plt.figure()
-    plt.plot(input_mat.std(axis=0))
-    
-else:
-    
-    stim_duration = 0.5
-    isi_suration = 0.5
-    
-    num_train_trials = 50000;
-    num_test_trials = 1000;
-    
-    input_size = 50;
-    num_stim = 10;
-    dt = .05;
-    tau = .5;              # in sec
-    alpha = dt/tau;         # 
-    
-    input_noise_std = 1/10
-    
-    #stim_t_std = 0
-    stim_t_std = 3
-    
-    output_size = num_stim + 1
-    
-    stim_bins = np.round(stim_duration/dt).astype(int)
-    isi_bins = np.round(isi_suration/dt).astype(int)
-    stim_loc = np.round(np.linspace(0, input_size, num_stim+2))[1:-1].astype(int)
-    
-    isi_lead = np.floor(isi_bins/2).astype(int)
-    
-    gaus_x_range = np.round(4*stim_t_std).astype(int)
-    gx = np.arange(-gaus_x_range, (gaus_x_range+1))
-    gaus_t = np.exp(-(gx/stim_t_std)**2/2).reshape((gaus_x_range*2+1,1))
-    gaus_t = gaus_t/np.sum(gaus_t)
-    
-    #plt.figure()
-    #plt.plot(gx, gaus_t)
-    # (num_stim_inputs x num_t x num_trial_types)
-    stim_temp_all = np.zeros((input_size, stim_bins + isi_bins, num_stim))
-    # (num_stim_outputs x num_t x num_trial_types)
-    out_temp_all = np.zeros((output_size, stim_bins + isi_bins, num_stim))
-    for n_st in range(num_stim):
-        stim_temp = np.zeros((input_size, stim_bins + isi_bins))
-        stim_temp[stim_loc[n_st], isi_lead:(isi_lead+stim_bins)] = 1
-        
-        if stim_t_std:
-            stim_temp = signal.convolve(stim_temp, gaus_t, mode="same")
-        
-        stim_temp_all[:,:,n_st] = stim_temp
-        
-        out_temp = np.zeros((output_size, stim_bins + isi_bins))
-        out_temp[n_st+1, isi_lead:(isi_lead+stim_bins)] = 1
-        out_temp[0, :isi_lead] = 1
-        out_temp[0, (isi_lead+stim_bins):] = 1
-        
-        out_temp_all[:,:,n_st] = out_temp
-        
-        # plt.figure()
-        # plt.subplot(121)
-        # plt.imshow(stim_temp)
-        # plt.subplot(122)
-        # plt.imshow(out_temp)
-      
-    trials_train = np.floor(np.random.random(num_train_trials)*num_stim).astype(int)
-    trials_test = np.floor(np.random.random(num_test_trials)*num_stim).astype(int)
-    
-    T = (stim_bins + isi_bins) * len(trials_train)
-    T_test = (stim_bins + isi_bins) * len(trials_test)
-    
-    input_mat = stim_temp_all[:,:,trials_train].reshape((input_size, T), order='F') + np.random.normal(0,input_noise_std,(input_size, T))
-    output_mat = out_temp_all[:,:,trials_train].reshape((output_size, T), order='F')
-    
-    input_mat_test = stim_temp_all[:,:,trials_test].reshape((input_size, T_test), order='F') + np.random.normal(0,input_noise_std,(input_size, T_test))
-    output_mat_test = out_temp_all[:,:,trials_test].reshape((output_size, T_test), order='F')
-    
-    # stim_vec = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    # stim_trace = stim_temp_all[:,:,stim_vec].reshape((input_size, (stim_bins + isi_bins) * len(stim_vec)), order='F')
-        
-    # count = np.zeros((num_stim))
+stim_temp_all, out_temp_all = f_gen_stim_output_templates(params)
 
-    # for n_tr in range(num_stim):
-    #     count[n_tr] = np.sum(trials_train==n_tr)
-    #     #count[n_tr] = np.sum(np.logical_and(np.less(trials, n_tr+1), np.greater_equal(trials, n_tr)))
 
-    # plt.figure()
-    # plt.plot(count)
+stim_temp2, out_temp2 = f_gen_stim_output_templates_thin(params)
+
+
+num_train_trials = params['num_train_trials']
+num_test_trials = params['num_test_trials']
+num_stim = params['num_stim']
+input_size = params['input_size']
+output_size = num_stim + 1
+input_noise_std = params['input_noise_std']
+
+trials_train = np.floor(np.random.random(num_train_trials)*num_stim).astype(int)
+trials_test = np.floor(np.random.random(num_test_trials)*num_stim).astype(int)
+
+trial_len = stim_temp_all.shape[1]
+
+T = (trial_len) * len(trials_train)
+T_test = (trial_len) * len(trials_test)
+
+input_mat = stim_temp_all[:,:,trials_train].reshape((input_size, T), order='F') + np.random.normal(0,input_noise_std,(input_size, T))
+output_mat = out_temp_all[:,:,trials_train].reshape((output_size, T), order='F')
+
+input_mat_test = stim_temp_all[:,:,trials_test].reshape((input_size, T_test), order='F') + np.random.normal(0,input_noise_std,(input_size, T_test))
+output_mat_test = out_temp_all[:,:,trials_test].reshape((output_size, T_test), order='F')
+
+# stim_vec = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+# stim_trace = stim_temp_all[:,:,stim_vec].reshape((input_size, (stim_bins + isi_bins) * len(stim_vec)), order='F')
     
+# count = np.zeros((num_stim))
 
-if plot_deets:
+# for n_tr in range(num_stim):
+#     count[n_tr] = np.sum(trials_train==n_tr)
+#     #count[n_tr] = np.sum(np.logical_and(np.less(trials, n_tr+1), np.greater_equal(trials, n_tr)))
+
+# plt.figure()
+# plt.plot(count)
+
+
+if params['plot_deets']:
     spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])
     
     plt.figure()
@@ -196,7 +133,7 @@ if plot_deets:
     plt.figure()
     ax1 = plt.subplot(spec2[0])
     ax1.imshow(input_mat, aspect="auto")
-    plt.title('inputs; %d stim; %d intups; std=%.1f' % (num_stim, input_size, stim_t_std))
+    plt.title('inputs; %d stim; %d intups; std=%.1f' % (num_stim, input_size, params['stim_t_std']))
     plt.subplot(spec2[1], sharex=ax1)
     plt.imshow(output_mat, aspect="auto")
     plt.title('outputs')
@@ -255,6 +192,7 @@ np.std(w1)
 #%% set learning params
 
 loss = nn.NLLLoss()
+#loss = nn.BCELoss() # another option but code needs changing prob
 
 iteration1 = [];
 iteration1.append(0);
