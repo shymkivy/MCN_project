@@ -44,21 +44,28 @@ def f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all, title_tag)
         shift = n_plt*2.5    
         ax1.plot(rates_all[plot_cells[n_plt],:]+shift)
     plt.title(title_tag + ' example cells')
+    plt.axis('off')
+   # plt.xticks([])
     plt.subplot(spec[1], sharex=ax1)
-    plt.plot(np.mean(rates_all[:,:], axis=0))
+    plt.plot(np.mean(rates_all, axis=0))
     plt.title('population average')
+    plt.axis('off')
     plt.subplot(spec[2], sharex=ax1)
     plt.imshow(input_sig.data, aspect="auto") #   , aspect=10
     plt.title('inputs')
+    plt.axis('off')
     plt.subplot(spec[3], sharex=ax1)
     plt.imshow(target.data, aspect="auto") # , aspect=100
     plt.title('target')
+    plt.axis('off')
     plt.subplot(spec[4], sharex=ax1)
-    plt.imshow(outputs_all[:,:], aspect="auto") # , aspect=100
+    plt.imshow(outputs_all, aspect="auto") # , aspect=100
     plt.title('outputs')
+    plt.axis('off')
     plt.subplot(spec[5], sharex=ax1)
     plt.plot(loss_all) # , aspect=100
     plt.title('outputs')
+    plt.axis('off')
 
 #%%
 def f_plot_rnn_params(rnn, rate, input_sig, text_tag=''):
@@ -82,4 +89,6 @@ def f_plot_rnn_params(rnn, rate, input_sig, text_tag=''):
     plt.subplot(4,1,4);
     plt.hist(i1,bins=n_hist_bins);
     plt.title(text_tag + 'inputs; std=%.2f' % np.std(i1))
+    
+    
     

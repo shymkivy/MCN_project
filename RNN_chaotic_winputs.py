@@ -7,14 +7,15 @@ Created on Thu Aug 19 15:33:58 2021
 
 import sys
 
-#path1 = 'C:/Users/yuriy/Desktop/stuff/RNN_stuff/'
-path1 = 'C:/Users/ys2605/Desktop/stuff/RNN_stuff/'
+path1 = 'C:/Users/yuriy/Desktop/stuff/RNN_stuff/'
+#path1 = 'C:/Users/ys2605/Desktop/stuff/RNN_stuff/'
 
 #sys.path.append('C:\\Users\\ys2605\\Desktop\\stuff\\mesto\\');
 #sys.path.append('/Users/ys2605/Desktop/stuff/RNN_stuff/RNN_scripts');
 sys.path.append(path1 + 'RNN_scripts');
 
 from f_analysis import *
+from f_RNN import *
 from f_RNN_chaotic import *
 
 import numpy as np
@@ -35,11 +36,10 @@ import skimage.io
 
 #%% loading inputs
 
-
 #fname_RNN_load = 'test_20k_std3'
-fname_RNN_load = 'test_20k';
+fname_RNN_load = '20k_std3';
 
-fname_RNN_save = 'test_50k_std3'
+fname_RNN_save = '20k_std3_2'
 
 #%% params
 load_input = 0
@@ -97,7 +97,7 @@ else:
     stim_duration = 0.5
     isi_suration = 0.5
     
-    num_train_trials = 50000;
+    num_train_trials = 20000;
     num_test_trials = 1000;
     
     input_size = 50;
@@ -122,7 +122,7 @@ else:
     gaus_x_range = np.round(4*stim_t_std).astype(int)
     gx = np.arange(-gaus_x_range, (gaus_x_range+1))
     gaus_t = np.exp(-(gx/stim_t_std)**2/2).reshape((gaus_x_range*2+1,1))
-    gaus_t = gaus_t/np.sum(gaus_t)
+    #gaus_t = gaus_t/np.sum(gaus_t)
     
     #plt.figure()
     #plt.plot(gx, gaus_t)
@@ -155,14 +155,67 @@ else:
     trials_train = np.floor(np.random.random(num_train_trials)*num_stim).astype(int)
     trials_test = np.floor(np.random.random(num_test_trials)*num_stim).astype(int)
     
+    oddball_stim = [3, 6]
+    dd_frac = 0.1
+    
+    trials_test_oddball = np.zeros((num_test_trials)).astype(int)
+    idx_dd = np.less_equal(np.random.random(num_test_trials), dd_frac)
+    trials_test_oddball[idx_dd] = oddball_stim[1]
+    trials_test_oddball[~idx_dd] = oddball_stim[0]
+    
+    trials_test_oddball_flip = np.zeros((num_test_trials)).astype(int)
+    idx_dd_flip = np.less_equal(np.random.random(num_test_trials), dd_frac)
+    trials_test_oddball_flip[idx_dd_flip] = oddball_stim[0]
+    trials_test_oddball_flip[~idx_dd_flip] = oddball_stim[1]
+
     T = (stim_bins + isi_bins) * len(trials_train)
     T_test = (stim_bins + isi_bins) * len(trials_test)
     
-    input_mat = stim_temp_all[:,:,trials_train].reshape((input_size, T), order='F') + np.random.normal(0,input_noise_std,(input_size, T))
-    output_mat = out_temp_all[:,:,trials_train].reshape((output_size, T), order='F')
+    # control train
+    input_trials = trials_train
+
+    input_mat_test = stim_temp_all[:,:,input_trials].reshape((input_size, T), order='F') + np.random.normal(0,input_noise_std,(input_size, T))
+    input_mat_test_n = input_mat_test - np.mean(input_mat_test)
+    input_mat_test_n = input_mat_test_n/np.std(input_mat_test_n)
+    output_mat = out_temp_all[:,:,input_trials].reshape((output_size, T), order='F')
     
-    input_mat_test = stim_temp_all[:,:,trials_test].reshape((input_size, T_test), order='F') + np.random.normal(0,input_noise_std,(input_size, T_test))
-    output_mat_test = out_temp_all[:,:,trials_test].reshape((output_size, T_test), order='F')
+    input_train_cont = input_mat_test_n
+    output_train_cont = output_mat
+    
+    # control
+    input_trials = trials_test
+
+    input_mat_test = stim_temp_all[:,:,input_trials].reshape((input_size, T_test), order='F') + np.random.normal(0,input_noise_std,(input_size, T_test))
+    input_mat_test_n = input_mat_test - np.mean(input_mat_test)
+    input_mat_test_n = input_mat_test_n/np.std(input_mat_test_n)
+    output_mat = out_temp_all[:,:,input_trials].reshape((output_size, T_test), order='F')
+    
+    input_test_cont = input_mat_test_n
+    output_test_cont = output_mat
+    
+    # oddball
+    input_trials = trials_test_oddball
+
+    input_mat_test = stim_temp_all[:,:,input_trials].reshape((input_size, T_test), order='F') + np.random.normal(0,input_noise_std,(input_size, T_test))
+    input_mat_test_n = input_mat_test - np.mean(input_mat_test)
+    input_mat_test_n = input_mat_test_n/np.std(input_mat_test_n)
+    output_mat = out_temp_all[:,:,input_trials].reshape((output_size, T_test), order='F')
+    
+    input_test_oddball = input_mat_test_n
+    output_test_oddball = output_mat
+    
+    # oddball flip
+    input_trials = trials_test_oddball_flip
+
+    input_mat_test = stim_temp_all[:,:,input_trials].reshape((input_size, T_test), order='F') + np.random.normal(0,input_noise_std,(input_size, T_test))
+    input_mat_test_n = input_mat_test - np.mean(input_mat_test)
+    input_mat_test_n = input_mat_test_n/np.std(input_mat_test_n)
+    output_mat = out_temp_all[:,:,input_trials].reshape((output_size, T_test), order='F')
+    
+    input_test_oddball_flip = input_mat_test_n
+    output_test_oddball_flip = output_mat
+    
+    
     
     # stim_vec = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     # stim_trace = stim_temp_all[:,:,stim_vec].reshape((input_size, (stim_bins + isi_bins) * len(stim_vec)), order='F')
@@ -178,27 +231,30 @@ else:
     
 
 if plot_deets:
+    input_plot = input_test_cont
+    output_plot = output_test_cont
+    
     spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])
     
     plt.figure()
     ax1 = plt.subplot(spec3[0])
-    ax1.plot(input_mat.std(axis=0))
+    ax1.plot(input_plot.std(axis=0))
     plt.title('inputs std; %d inputs' % input_size)
     plt.subplot(spec3[1], sharex=ax1)
-    plt.plot(input_mat.mean(axis=0))
+    plt.plot(input_plot.mean(axis=0))
     plt.title('inputs mean')
     plt.subplot(spec3[2], sharex=ax1)
-    plt.plot(input_mat.max(axis=0))
+    plt.plot(input_plot.max(axis=0))
     plt.title('inputs max')
     
     spec2 = gridspec.GridSpec(ncols=1, nrows=2, height_ratios=[1, 1])
     
     plt.figure()
     ax1 = plt.subplot(spec2[0])
-    ax1.imshow(input_mat, aspect="auto")
+    ax1.imshow(input_plot, aspect="auto")
     plt.title('inputs; %d stim; %d intups; std=%.1f' % (num_stim, input_size, stim_t_std))
     plt.subplot(spec2[1], sharex=ax1)
-    plt.imshow(output_mat, aspect="auto")
+    plt.imshow(output_plot, aspect="auto")
     plt.title('outputs')
     
 
@@ -208,74 +264,42 @@ hidden_size = 250;      # number of neurons
 
 g = 5;          # recurrent connection strength 
 
-#%% normalize inputs and set as tensor arrays
-
-#input_sig = torch.zeros(input_size, T)
-
-#input_mat = np.random.randn(input_size,T)
-
-input_mat_n = input_mat - np.mean(input_mat)
-input_mat_n = input_mat_n/np.std(input_mat_n)
-input_sig = torch.tensor(input_mat_n[:,0:T]).float()
-
-input_mat_test_n = input_mat_test - np.mean(input_mat_test)
-input_mat_test_n = input_mat_test_n/np.std(input_mat_test_n)
-input_sig_test = torch.tensor(input_mat_test_n[:,0:T_test]).float()
-
-target = torch.tensor(output_mat[:,0:T]).float()
-target_test = torch.tensor(output_mat_test[:,0:T_test]).float()
-
-
-plt.figure()
-plt.plot(np.std(input_mat_n, axis=0))
-plt.title('std of inputs vs time')
 
 #%% initialize RNN
 rnn = RNN_chaotic(input_size, hidden_size, output_size, alpha)
 
-#%% initialize rate and weights
-
-rate = rnn.init_rate();
-rate_test = rnn.init_rate();
-
 rnn.init_weights(g)
 
-# can adjust bias here 
-#rnn.h2h.bias.data  = rnn.h2h.bias.data -2
-#np.std(np.asarray(rnn.h2h.weight ).flatten())
-
-#%% plot RNN parameters
-
-f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'initial ')
-
-w1 = np.asarray(rnn.h2h.weight.data);
-
-np.std(w1)
-
-#%% set learning params
-
 loss = nn.NLLLoss()
-
-iteration1 = [];
-iteration1.append(0);
-
-iteration_test = []
-iteration_test.append(0);
 
 if train_RNN:
     learning_rate = 0.005
     optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)   
 
-#%%
-num_cycles = 1;
+#%% initialize 
+input_sig = torch.tensor(input_train_cont[:,0:T]).float()
+
+target = torch.tensor(output_train_cont[:,0:T]).float()
+
+rate = rnn.init_rate();
+
+iteration1 = [];
+iteration1.append(0);
 
 rates_all = np.zeros((hidden_size, T));
 outputs_all = np.zeros((output_size, T));
 loss_all = np.zeros((T));
 
-rates_all_test = np.zeros((hidden_size, T_test))
-outputs_all_test = np.zeros((output_size, T_test));
-loss_all_test = np.zeros((T_test));
+# can adjust bias here 
+#rnn.h2h.bias.data  = rnn.h2h.bias.data -2
+#np.std(np.asarray(rnn.h2h.weight ).flatten())
+
+#%%
+plt.figure()
+plt.plot(np.std(input_test_cont, axis=0))
+plt.title('std of inputs vs time')
+
+f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'initial ')
 
 #%%
 if load_RNN:
@@ -313,25 +337,13 @@ if save_RNN and train_RNN:
     torch.save(rnn.state_dict(), path1 + '/RNN_data/' + fname_RNN_save)
 
 #%% test
+rates_test_cont, outputs_test_cont, loss_test_cont, iteration_test_cont = f_test(rnn, loss, input_test_cont, output_test_cont, hidden_size)
 
-for n_t in range(T_test-1):
-    
-    output, rate_new = rnn.forward(input_sig_test[:,n_t], rate_test)
-    
-    rates_all_test[:,n_t+1] = rate_new.detach().numpy()[0,:];
-    
-    rate_test = rate_new.detach();
+#%% test oddball
+rates_test_ob, outputs_test_ob, loss_test_ob, iteration_test_ob = f_test(rnn, loss, input_test_oddball, output_test_oddball, hidden_size)
 
-    outputs_all_test[:,n_t+1] = output.detach().numpy()[0,:];
-    
-    target2 = torch.argmax(target_test[:,n_t]) * torch.ones(1) # torch.tensor()
-    loss2 = loss(output, target2.long())
-      
-    loss_all_test[n_t] = loss2.item()
-    iteration_test.append(iteration_test[-1]+1);
-
-print('Done')
-    
+#%% test oddball flip
+rates_test_obf, outputs_test_obf, loss_test_obf, iteration_test_obf = f_test(rnn, loss, input_test_oddball_flip, output_test_oddball_flip, hidden_size)
 
 #%%
 f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'final ')
@@ -344,23 +356,29 @@ kernel = np.ones(sm_bin)/sm_bin
 
 loss_all_smooth = np.convolve(loss_all, kernel, mode='valid')
 
-loss_all_test_smooth = np.convolve(loss_all_test, kernel, mode='valid')
+loss_test_cont_smooth = np.convolve(loss_test_cont, kernel, mode='valid')
+
+loss_x = np.arange(len(loss_all_smooth))/(stim_bins + isi_bins)
+loss_x_test = np.arange(len(loss_test_cont_smooth))/(stim_bins + isi_bins)
+
 
 plt.figure()
-plt.plot(loss_all_smooth)
-plt.plot(loss_all_test_smooth)
+plt.plot(loss_x, loss_all_smooth)
+plt.plot(loss_x_test, loss_test_cont_smooth)
 plt.legend(('train', 'test'))
+plt.xlabel('trials')
+plt.ylabel('NLL loss')
+plt.title(fname_RNN_save)
 
 #%%
 
 f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all, 'train')
 
-f_plot_rates(rates_all_test, input_sig_test, target_test, outputs_all_test, loss_all_test, 'test')
+f_plot_rates(rates_test_cont, input_test_cont, output_test_cont, outputs_test_cont, loss_test_cont, 'test cont')
 
+f_plot_rates(rates_test_ob, input_test_oddball, output_test_oddball, outputs_test_ob, loss_test_ob, 'test oddball')
 
-#%%
-
-
+f_plot_rates(rates_test_obf, input_test_oddball_flip, output_test_oddball_flip, outputs_test_obf, loss_test_obf, 'test oddball flip')
 
 
 #%% analyze tuning 
@@ -368,8 +386,8 @@ f_plot_rates(rates_all_test, input_sig_test, target_test, outputs_all_test, loss
 plt.close('all')
 
 
-n_cell = 0
-n_tr = 0
+output_calc = output_test_cont
+rates_calc = rates_test_cont
 
 num_cells = hidden_size;
 
@@ -377,7 +395,7 @@ trial_ave_win = [-5,15]
 
 num_t = trial_ave_win[1] - trial_ave_win[0]
 
-stim_times = np.diff(output_mat_test[1,:], prepend=0)
+stim_times = np.diff(output_calc[1,:], prepend=0)
 on_times = np.where(np.greater(stim_times, 0))[0]
 
 colors1 = plt.cm.jet(np.linspace(0, 1, num_stim))
@@ -387,7 +405,7 @@ plot_t = np.asarray(range(trial_ave_win[0], trial_ave_win[1]))
 on_times_all = []
 num_trials_all = np.zeros((num_stim), dtype=int)
 for n_stim in range(num_stim):
-    stim_times = np.diff(output_mat_test[n_stim+1,:], prepend=0)
+    stim_times = np.diff(output_calc[n_stim+1,:], prepend=0)
     on_times_trace = np.greater(stim_times, 0)
     on_times = np.where(on_times_trace)[0]
     
@@ -399,7 +417,7 @@ trial_all = []
 trial_ave_all = np.zeros((num_cells, num_stim, num_t))
 
 for n_cell in range(num_cells):
-    cell_trace = rates_all_test[n_cell,:]
+    cell_trace = rates_calc[n_cell,:]
     
     trial_all_stim = []
     
@@ -425,7 +443,7 @@ trial_resp_all = np.mean(trial_ave_all[:,:,-trial_ave_win[0]:(-trial_ave_win[0]+
 trial_max_idx = np.argmax(trial_resp_all, axis=1)
 idx1_sort = trial_max_idx.argsort()
 
-trial_resp_all_sort = trial_resp_all[idx1,:]
+trial_resp_all_sort = trial_resp_all[idx1_sort,:]
 
 plt.figure()
 plt.imshow(trial_resp_all_sort, aspect="auto")
