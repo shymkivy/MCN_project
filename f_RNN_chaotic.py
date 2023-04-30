@@ -45,6 +45,8 @@ class RNN_chaotic(nn.Module):
         
         std1 = g/np.sqrt(self.hidden_size);
         
+        print(std1)
+        
         wi2h = wi2h - np.mean(wi2h.detach().numpy());
         wi2h = wi2h * std1;
         
