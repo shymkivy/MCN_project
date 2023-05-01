@@ -48,7 +48,7 @@ plot_deets = 1
 
 params = {'train_type':             'standard',     # standard, linear
           'num_train_trials':       20,             # for linear 20000; for standard 20, for ~400 bins total
-          'num_train_bouts':        200,            # for liner, 1 bout; for standard many
+          'num_train_bouts':        10,            # for liner, 1 bout; for standard many
           'dt':                     0.05,
           'num_test_trials':        1000,
           'stim_duration':          0.5,
@@ -152,7 +152,11 @@ output_size = params['num_stim'] + 1
 hidden_size = params['hidden_size'];
 alpha = params['dt']/params['tau'];         
 
-rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, alpha)
+if params['train_type'] == 'standard':
+    rnn = RNN_chaotic_standard(params['input_size'], params['hidden_size'], output_size, alpha)
+else:
+    rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, alpha)
+
 rnn.init_weights(params['g'])
 
 loss = nn.NLLLoss()
