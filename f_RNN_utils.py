@@ -180,6 +180,25 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
 
 #%%
 
+def f_plot_rates(rates, num_cells_plot = 999999):
+    
+    spacing = np.ceil(np.max(rates) - np.min(rates))  
+    num_cells = rates.shape[0]
+    
+    offsets = np.reshape(np.linspace(1, (num_cells)*spacing, num_cells), (num_cells, 1));
+    
+    num_cells_plot = np.min((num_cells_plot, num_cells))
+    
+    rates2 = rates + offsets
+    
+    plt.figure()
+    plt.plot(rates2[:num_cells_plot,:].T)
+    plt.ylabel('cells')
+    plt.xlabel('time')
+    
+
+#%%
+
 # def f_load_RNN_inputs():
     
 #     fpath = path1 + '/RNN_data/'

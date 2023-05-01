@@ -46,17 +46,17 @@ plot_deets = 1
 
 #%% input params
 
-params = {'trial_train':            1,
-          'num_trial_bins':         400,
+params = {'train_type':             'standard',     # standard, linear
+          'num_train_trials':       20,             # for linear 20000; for standard 20, for ~400 bins total
+          'num_train_bouts':        200,            # for liner, 1 bout; for standard many
+          'dt':                     0.05,
+          'num_test_trials':        1000,
           'stim_duration':          0.5,
           'isi_suration':           0.5,
-          'num_train_trials':       20000,
-          'num_test_trials':        1000,
           'input_size':             50,
           'hidden_size':            250,            # number of RNN neurons
           'g':                      5,              # recurrent connection strength 
           'num_stim':               20,
-          'dt':                     0.05,
           'tau':                    0.5,
           'stim_t_std':             3,              # 3 or 0
           'input_noise_std':        1/100,
@@ -88,11 +88,6 @@ stim_temp_all, out_temp_all = f_gen_stim_output_templates(params)
 stim_temp2, out_temp2 = f_gen_stim_output_templates_thin(params)
 
 
-num_stim = params['num_stim']
-num_train_trials = params['num_train_trials']
-num_test_trials = params['num_test_trials']
-
-
 oddball_stim = params['oddball_stim'].copy()
 oddball_stim_flip = params['oddball_stim'].copy()
 oddball_stim_flip.reverse()
@@ -100,11 +95,11 @@ oddball_stim_flip.reverse()
 dd_frac = params['dd_frac']
 
 
-trials_train_cont = f_gen_cont_seq(num_stim, num_train_trials, 1)
+trials_train_cont = f_gen_cont_seq(params['num_stim'], params['num_train_trials'], params['num_train_bouts'])
 
-trials_test_cont = f_gen_cont_seq(num_stim, num_test_trials, 1)
-trials_test_oddball = f_gen_oddball_seq(oddball_stim, num_test_trials, dd_frac, 1)
-trials_test_oddball_flip = f_gen_oddball_seq(oddball_stim_flip, num_test_trials, dd_frac, 1)
+trials_test_cont = f_gen_cont_seq(params['num_stim'], params['num_test_trials'], 1)
+trials_test_oddball = f_gen_oddball_seq(oddball_stim, params['num_test_trials'], dd_frac, 1)
+trials_test_oddball_flip = f_gen_oddball_seq(oddball_stim_flip, params['num_test_trials'], dd_frac, 1)
 
 
 input_train_cont, output_train_cont = f_gen_input_output_from_seq(trials_train_cont, stim_temp_all, out_temp_all, params)
@@ -153,13 +148,11 @@ if params['plot_deets']:
 
 #%% initialize RNN 
 
-input_size = params['input_size']
 output_size = params['num_stim'] + 1
 hidden_size = params['hidden_size'];
 alpha = params['dt']/params['tau'];         
-g = params['g'];   
 
-rnn = RNN_chaotic(input_size, params['hidden_size'], output_size, alpha)
+rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, alpha)
 rnn.init_weights(params['g'])
 
 loss = nn.NLLLoss()
@@ -171,7 +164,7 @@ if load_RNN:
 
 #%%
 if train_RNN:
-    if params['trial_train']:
+    if params['train_type'] == 'standard':
         train_cont = f_RNN_trial_train(rnn, loss, input_train_cont, output_train_cont, params)
     else:
         train_cont = f_RNN_linear_train(rnn, loss, input_train_cont, output_train_cont, params)
@@ -179,6 +172,8 @@ else:
     print('running without training')
     train_cont = f_RNN_test(rnn, loss, input_train_cont, output_train_cont, params)
     
+    
+# f_plot_rates(rates_all[:,:, 1], 10)
  #%%
 if save_RNN and train_RNN:
     print('Saving RNN %s' % fname_RNN_save)

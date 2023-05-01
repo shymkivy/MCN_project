@@ -25,7 +25,7 @@ class RNN_chaotic(nn.Module):
         self.h2o = nn.Linear(hidden_size, output_size)
         self.softmax = nn.LogSoftmax(dim=1)
         self.tanh = nn.Tanh()
-        self.sigmoid = nn.Sigmoid()
+        #self.sigmoid = nn.Sigmoid()
         
     def init_weights(self, g):
         
@@ -61,7 +61,6 @@ class RNN_chaotic(nn.Module):
         output = self.softmax(self.h2o(rate_new))
         
         return output, rate_new
-    
         
     def init_rate(self):
         rate = torch.empty(1, self.hidden_size);
