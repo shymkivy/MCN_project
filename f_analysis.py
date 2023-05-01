@@ -32,7 +32,12 @@ def seriation(Z,N,cur_index):
     
 #%%
 
-def f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all, title_tag):
+def f_plot_rates(rnn_data, input_sig, target, title_tag):
+    
+    rates_all = rnn_data['rates']
+    loss_all = rnn_data['loss']
+    outputs_all = rnn_data['outputs']
+
     num_plots = 10;
     
     plot_cells = np.sort(sample(range(rates_all.shape[0]), num_plots));

@@ -36,41 +36,46 @@ from scipy.io import loadmat, savemat
 import skimage.io
 
 
-#%% loading/saving RNN
-
-#fname_RNN_load = 'test_20k_std3'
-fname_RNN_load = '20k_std3';
-
-
-#fname_RNN_save = 'test_50k_std4'
-fname_RNN_save = '20k_std3_2'
-
 #%% params
 
 compute_loss = 1
 train_RNN = 1
-save_RNN = 1
+save_RNN = 0
 load_RNN = 0
 plot_deets = 1
 
 #%% input params
 
-params = {'stim_duration':          0.5,
+params = {'trial_train':            1,
+          'num_trial_bins':         400,
+          'stim_duration':          0.5,
           'isi_suration':           0.5,
-          'num_train_trials':       50000,
+          'num_train_trials':       20000,
           'num_test_trials':        1000,
           'input_size':             50,
-          'num_stim':               10,
+          'hidden_size':            250,            # number of RNN neurons
+          'g':                      5,              # recurrent connection strength 
+          'num_stim':               20,
           'dt':                     0.05,
           'tau':                    0.5,
-          'stim_t_std':             3,      # 3 or 0
-          'input_noise_std':        1/10,
-          'plot_deets':             1,
+          'stim_t_std':             3,              # 3 or 0
+          'input_noise_std':        1/100,
           'oddball_stim':           [3, 6],
           'dd_frac':                0.1,
+          'plot_deets':             0,
           }
 
-alpha = params['dt']/params['tau'];         # 
+name_tag = '%dktrials_%dstim_std%.0f' % (params['num_train_trials']/1000, params['num_stim'], params['stim_t_std'])
+
+#%%
+
+#fname_RNN_load = 'test_20k_std3'
+#fname_RNN_load = '50k_20stim_std3';
+fname_RNN_load = name_tag
+
+#fname_RNN_save = 'test_50k_std4'
+#fname_RNN_save = '50k_20stim_std3'
+fname_RNN_save = name_tag
 
 #%% generate train data
 
@@ -82,91 +87,48 @@ stim_temp_all, out_temp_all = f_gen_stim_output_templates(params)
 
 stim_temp2, out_temp2 = f_gen_stim_output_templates_thin(params)
 
+
+num_stim = params['num_stim']
 num_train_trials = params['num_train_trials']
 num_test_trials = params['num_test_trials']
-num_stim = params['num_stim']
-input_size = params['input_size']
-output_size = num_stim + 1
-input_noise_std = params['input_noise_std']
-oddball_stim = params['oddball_stim']
+
+
+oddball_stim = params['oddball_stim'].copy()
+oddball_stim_flip = params['oddball_stim'].copy()
+oddball_stim_flip.reverse()
+
 dd_frac = params['dd_frac']
 
 
-trials_train = np.floor(np.random.random(num_train_trials)*num_stim).astype(int)
-trials_test = np.floor(np.random.random(num_test_trials)*num_stim).astype(int)
+trials_train_cont = f_gen_cont_seq(num_stim, num_train_trials, 1)
 
-trial_len = stim_temp_all.shape[1]
-
-T = (trial_len) * len(trials_train)
-T_test = (trial_len) * len(trials_test)
+trials_test_cont = f_gen_cont_seq(num_stim, num_test_trials, 1)
+trials_test_oddball = f_gen_oddball_seq(oddball_stim, num_test_trials, dd_frac, 1)
+trials_test_oddball_flip = f_gen_oddball_seq(oddball_stim_flip, num_test_trials, dd_frac, 1)
 
 
-trials_test_oddball = np.zeros((num_test_trials)).astype(int)
-idx_dd = np.less_equal(np.random.random(num_test_trials), dd_frac)
-trials_test_oddball[idx_dd] = oddball_stim[1]
-trials_test_oddball[~idx_dd] = oddball_stim[0]
+input_train_cont, output_train_cont = f_gen_input_output_from_seq(trials_train_cont, stim_temp_all, out_temp_all, params)
 
-trials_test_oddball_flip = np.zeros((num_test_trials)).astype(int)
-idx_dd_flip = np.less_equal(np.random.random(num_test_trials), dd_frac)
-trials_test_oddball_flip[idx_dd_flip] = oddball_stim[0]
-trials_test_oddball_flip[~idx_dd_flip] = oddball_stim[1]
+input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_temp_all, out_temp_all, params)
 
-# control train
-input_trials = trials_train
+input_test_oddball, output_test_oddball = f_gen_input_output_from_seq(trials_test_oddball, stim_temp_all, out_temp_all, params)
 
-input_mat_test = stim_temp_all[:,:,input_trials].reshape((input_size, T), order='F') + np.random.normal(0,input_noise_std,(input_size, T))
-input_mat_test_n = input_mat_test - np.mean(input_mat_test)
-input_mat_test_n = input_mat_test_n/np.std(input_mat_test_n)
-output_mat = out_temp_all[:,:,input_trials].reshape((output_size, T), order='F')
-
-input_train_cont = input_mat_test_n
-output_train_cont = output_mat
-
-# control
-input_trials = trials_test
-
-input_mat_test = stim_temp_all[:,:,input_trials].reshape((input_size, T_test), order='F') + np.random.normal(0,input_noise_std,(input_size, T_test))
-input_mat_test_n = input_mat_test - np.mean(input_mat_test)
-input_mat_test_n = input_mat_test_n/np.std(input_mat_test_n)
-output_mat = out_temp_all[:,:,input_trials].reshape((output_size, T_test), order='F')
-
-input_test_cont = input_mat_test_n
-output_test_cont = output_mat
-
-# oddball
-input_trials = trials_test_oddball
-
-input_mat_test = stim_temp_all[:,:,input_trials].reshape((input_size, T_test), order='F') + np.random.normal(0,input_noise_std,(input_size, T_test))
-input_mat_test_n = input_mat_test - np.mean(input_mat_test)
-input_mat_test_n = input_mat_test_n/np.std(input_mat_test_n)
-output_mat = out_temp_all[:,:,input_trials].reshape((output_size, T_test), order='F')
-
-input_test_oddball = input_mat_test_n
-output_test_oddball = output_mat
-
-# oddball flip
-input_trials = trials_test_oddball_flip
-
-input_mat_test = stim_temp_all[:,:,input_trials].reshape((input_size, T_test), order='F') + np.random.normal(0,input_noise_std,(input_size, T_test))
-input_mat_test_n = input_mat_test - np.mean(input_mat_test)
-input_mat_test_n = input_mat_test_n/np.std(input_mat_test_n)
-output_mat = out_temp_all[:,:,input_trials].reshape((output_size, T_test), order='F')
-
-input_test_oddball_flip = input_mat_test_n
-output_test_oddball_flip = output_mat
-
+input_test_oddball_flip, output_test_oddball_flip = f_gen_input_output_from_seq(trials_test_oddball_flip, stim_temp_all, out_temp_all, params)
 
 
 if params['plot_deets']:
-
     input_plot = input_test_cont
     output_plot = output_test_cont
+    
+    if len(input_plot.shape) > 2:
+        input_plot = input_plot[:,:,0]
+        output_plot = output_plot[:,:,0]
     
     spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])
     plt.figure()
     ax1 = plt.subplot(spec3[0])
     ax1.plot(input_plot.std(axis=0))
-    plt.title('inputs std; %d inputs' % input_size)
+    plt.title('inputs std; %d inputs' % params['input_size'])
     plt.subplot(spec3[1], sharex=ax1)
     plt.plot(input_plot.mean(axis=0))
     plt.title('inputs mean')
@@ -175,130 +137,78 @@ if params['plot_deets']:
     plt.title('inputs max')
     
     spec2 = gridspec.GridSpec(ncols=1, nrows=2, height_ratios=[1, 1])
-    
     plt.figure()
     ax1 = plt.subplot(spec2[0])
-    ax1.imshow(input_mat, aspect="auto")
-    plt.title('inputs; %d stim; %d intups; std=%.1f' % (num_stim, input_size, params['stim_t_std']))
     ax1.imshow(input_plot, aspect="auto")
-    plt.title('inputs; %d stim; %d intups; std=%.1f' % (num_stim, input_size, stim_t_std))
+    plt.title('inputs; %d stim; %d intups; std=%.1f' % (num_stim, params['input_size'], params['stim_t_std']))
     plt.subplot(spec2[1], sharex=ax1)
     plt.imshow(output_plot, aspect="auto")
     plt.title('outputs')
     
+    plt.figure()
+    plt.plot(np.mean(input_plot, axis=1))
+    plt.title('mean spectrogram across time')
+    plt.xlabel('inputs')
+    plt.ylabel('mean power')
 
 #%% initialize RNN 
 
-hidden_size = 250;      # number of neurons
+input_size = params['input_size']
+output_size = params['num_stim'] + 1
+hidden_size = params['hidden_size'];
+alpha = params['dt']/params['tau'];         
+g = params['g'];   
 
-g = 5;          # recurrent connection strength 
-
-
-#%% initialize RNN
-rnn = RNN_chaotic(input_size, hidden_size, output_size, alpha)
-
-rnn.init_weights(g)
+rnn = RNN_chaotic(input_size, params['hidden_size'], output_size, alpha)
+rnn.init_weights(params['g'])
 
 loss = nn.NLLLoss()
-
-if train_RNN:
-    learning_rate = 0.005
-    optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)   
-
-#%% initialize 
-input_sig = torch.tensor(input_train_cont[:,0:T]).float()
-
-target = torch.tensor(output_train_cont[:,0:T]).float()
-
-<<<<<<< HEAD
-loss = nn.NLLLoss()
-#loss = nn.BCELoss() # another option but code needs changing prob
-=======
-rate = rnn.init_rate();
->>>>>>> a9499e6b10f8f60224af71f4d9800f2245cf0e0b
-
-iteration1 = [];
-iteration1.append(0);
-
-rates_all = np.zeros((hidden_size, T));
-outputs_all = np.zeros((output_size, T));
-loss_all = np.zeros((T));
-
-# can adjust bias here 
-#rnn.h2h.bias.data  = rnn.h2h.bias.data -2
-#np.std(np.asarray(rnn.h2h.weight ).flatten())
-
-#%%
-plt.figure()
-plt.plot(np.std(input_test_cont, axis=0))
-plt.title('std of inputs vs time')
-
-f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'initial ')
 
 #%%
 if load_RNN:
+    print('Loading RNN %s' % fname_RNN_load)
     rnn.load_state_dict(torch.load(path1 + '/RNN_data/' + fname_RNN_load))
 
-#%% train
-
-for n_t in range(T-1):
-    
-    if train_RNN:
-        optimizer.zero_grad()
-    
-    output, rate_new = rnn.forward(input_sig[:,n_t], rate)
-    
-    rates_all[:,n_t+1] = rate_new.detach().numpy()[0,:];
-    
-    rate = rate_new.detach();
-
-    outputs_all[:,n_t+1] = output.detach().numpy()[0,:];
-    
-    target2 = torch.argmax(target[:,n_t]) * torch.ones(1) # torch.tensor()
-    loss2 = loss(output, target2.long())
-    
-    if train_RNN:
-        loss2.backward() # retain_graph=True
-        optimizer.step()
-        
-    loss_all[n_t] = loss2.item()
-    iteration1.append(iteration1[-1]+1);
-
-print('Done')
-    
 #%%
+if train_RNN:
+    if params['trial_train']:
+        train_cont = f_RNN_trial_train(rnn, loss, input_train_cont, output_train_cont, params)
+    else:
+        train_cont = f_RNN_linear_train(rnn, loss, input_train_cont, output_train_cont, params)
+else:
+    print('running without training')
+    train_cont = f_RNN_test(rnn, loss, input_train_cont, output_train_cont, params)
+    
+ #%%
 if save_RNN and train_RNN:
+    print('Saving RNN %s' % fname_RNN_save)
     torch.save(rnn.state_dict(), path1 + '/RNN_data/' + fname_RNN_save)
 
 #%% test
-rates_test_cont, outputs_test_cont, loss_test_cont, iteration_test_cont = f_test(rnn, loss, input_test_cont, output_test_cont, hidden_size)
+test_cont = f_RNN_test(rnn, loss, input_test_cont, output_test_cont, params)
 
 #%% test oddball
-rates_test_ob, outputs_test_ob, loss_test_ob, iteration_test_ob = f_test(rnn, loss, input_test_oddball, output_test_oddball, hidden_size)
+test_oddball = f_RNN_test(rnn, loss, input_test_oddball, output_test_oddball, params)
 
 #%% test oddball flip
-rates_test_obf, outputs_test_obf, loss_test_obf, iteration_test_obf = f_test(rnn, loss, input_test_oddball_flip, output_test_oddball_flip, hidden_size)
-
-#%%
-f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'final ')
+test_oddball_flip = f_RNN_test(rnn, loss, input_test_oddball_flip, output_test_oddball_flip, params)
 
 #%%
 
-sm_bin = round(1/dt)*50;
-
+sm_bin = round(1/params['dt'])*50;
+trial_len = out_temp_all.shape[1]
 kernel = np.ones(sm_bin)/sm_bin
 
-loss_all_smooth = np.convolve(loss_all, kernel, mode='valid')
+loss_train_cont_sm = np.convolve(train_cont['loss'], kernel, mode='valid')
+loss_test_cont_sm = np.convolve(test_cont['loss'], kernel, mode='valid')
 
-loss_test_cont_smooth = np.convolve(loss_test_cont, kernel, mode='valid')
-
-loss_x = np.arange(len(loss_all_smooth))/(stim_bins + isi_bins)
-loss_x_test = np.arange(len(loss_test_cont_smooth))/(stim_bins + isi_bins)
+loss_x = np.arange(len(loss_train_cont_sm))/(trial_len)
+loss_x_test = np.arange(len(loss_test_cont_sm))/(trial_len)
 
 
 plt.figure()
-plt.plot(loss_x, loss_all_smooth)
-plt.plot(loss_x_test, loss_test_cont_smooth)
+plt.plot(loss_x, loss_train_cont_sm)
+plt.plot(loss_x_test, loss_test_cont_sm)
 plt.legend(('train', 'test'))
 plt.xlabel('trials')
 plt.ylabel('NLL loss')
@@ -306,13 +216,13 @@ plt.title(fname_RNN_save)
 
 #%%
 
-f_plot_rates(rates_all, input_sig, target, outputs_all, loss_all, 'train')
+f_plot_rates(train_cont, input_train_cont, output_train_cont, 'train')
 
-f_plot_rates(rates_test_cont, input_test_cont, output_test_cont, outputs_test_cont, loss_test_cont, 'test cont')
+f_plot_rates(test_cont, input_test_cont, output_test_cont, 'test cont')
 
-f_plot_rates(rates_test_ob, input_test_oddball, output_test_oddball, outputs_test_ob, loss_test_ob, 'test oddball')
+f_plot_rates(test_oddball, input_test_oddball, output_test_oddball, 'test oddball')
 
-f_plot_rates(rates_test_obf, input_test_oddball_flip, output_test_oddball_flip, outputs_test_obf, loss_test_obf, 'test oddball flip')
+f_plot_rates(test_oddball_flip, input_test_oddball_flip, output_test_oddball_flip, 'test oddball flip')
 
 
 #%% analyze tuning 
@@ -320,10 +230,11 @@ f_plot_rates(rates_test_obf, input_test_oddball_flip, output_test_oddball_flip, 
 plt.close('all')
 
 
+trial_len = out_temp_all.shape[1]
 output_calc = output_test_cont
-rates_calc = rates_test_cont
+rates_calc = test_cont['rates']
 
-num_cells = hidden_size;
+num_cells = params['hidden_size'];
 
 trial_ave_win = [-5,15]
 
@@ -372,7 +283,7 @@ for n_cell in range(num_cells):
         
     trial_all.append(trial_all_stim)
 
-trial_resp_all = np.mean(trial_ave_all[:,:,-trial_ave_win[0]:(-trial_ave_win[0]+stim_bins)], axis=2)
+trial_resp_all = np.mean(trial_ave_all[:,:,-trial_ave_win[0]:(-trial_ave_win[0]+trial_len)], axis=2)
 
 trial_max_idx = np.argmax(trial_resp_all, axis=1)
 idx1_sort = trial_max_idx.argsort()
