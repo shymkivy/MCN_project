@@ -46,9 +46,9 @@ plot_deets = 1
 
 #%% input params
 
-params = {'train_type':             'standard',     # standard, linear
-          'num_train_trials':       20,             # for linear 20000; for standard 20, for ~400 bins total
-          'num_train_bouts':        10,            # for liner, 1 bout; for standard many
+params = {'train_type':             'linear',     # standard, linear
+          'num_train_trials':       1000,             # for linear 1000; for standard 20, for ~400 bins total
+          'num_train_bouts':        1,            # 1 for linert; 10for standard many
           'dt':                     0.05,
           'num_test_trials':        1000,
           'stim_duration':          0.5,

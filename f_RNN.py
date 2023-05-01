@@ -35,7 +35,6 @@ def f_RNN_linear_train(rnn, loss, input_train, output_train, params):
     rates_all = np.zeros((hidden_size, T));
     outputs_all = np.zeros((output_size, T));
     loss_all = np.zeros((T));
-    iterations_all = np.zeros((T));
 
     # can adjust bias here 
     #rnn.h2h.bias.data  = rnn.h2h.bias.data -2
@@ -51,30 +50,33 @@ def f_RNN_linear_train(rnn, loss, input_train, output_train, params):
 
 
     print('Starting linear training')
-
-    rates_all[:,0] = rate.detach().numpy()[0,:]
     
-    for n_t in range(T-1):
+    start_time = time.time()
+    
+    for n_t in range(T):
         
         optimizer.zero_grad()
         
         output, rate_new = rnn.forward(input_sig[:,n_t], rate)
         
-        rates_all[:,n_t+1] = rate_new.detach().numpy()[0,:];
+        rates_all[:,n_t] = rate_new.detach().numpy()
         
         rate = rate_new.detach();
 
-        outputs_all[:,n_t+1] = output.detach().numpy()[0,:];
+        outputs_all[:,n_t] = output.detach().numpy()
         
-        target2 = torch.argmax(target[:,n_t]) * torch.ones(1) # torch.tensor()
+        target2 = torch.argmax(target[:,n_t]) # * torch.ones(1) # torch.tensor()
         loss2 = loss(output, target2.long())
         
         loss2.backward() # retain_graph=True
         optimizer.step()
             
         loss_all[n_t] = loss2.item()
-        iterations_all[n_t] = n_t;
-
+        
+        # Compute the running loss every 10 steps
+        if (n_t % 100) == 0:
+            print('Step %d/%d, Loss %0.3f, Time %0.1fs' % (n_t, T, loss2.item(), time.time() - start_time))
+        
     print('Done')
     
     if params['plot_deets']:
@@ -84,7 +86,6 @@ def f_RNN_linear_train(rnn, loss, input_train, output_train, params):
     rnn_out = {'rates':         rates_all,
                'outputs':       outputs_all,
                'loss':          loss_all,
-               'iterations':    iterations_all,
                }
     return rnn_out
     
@@ -191,30 +192,27 @@ def f_RNN_test(rnn, loss, input_test, output_test, params):
     rates_all_test = np.zeros((hidden_size, T))
     outputs_all_test = np.zeros((output_size, T));
     loss_all_test = np.zeros((T));
-    iterations_all_test = np.zeros((T));
-    
-    for n_t in range(T-1):
+
+    for n_t in range(T):
         
         output, rate_new = rnn.forward(input_sig_test[:,n_t], rate_test)
         
-        rates_all_test[:,n_t+1] = rate_new.detach().numpy()[0,:];
+        rates_all_test[:,n_t] = rate_new.detach().numpy();
         
         rate_test = rate_new.detach();
 
-        outputs_all_test[:,n_t+1] = output.detach().numpy()[0,:];
+        outputs_all_test[:,n_t] = output.detach().numpy();
         
-        target2 = torch.argmax(target_test[:,n_t]) * torch.ones(1) # torch.tensor()
+        target2 = torch.argmax(target_test[:,n_t])# * torch.ones(1) # torch.tensor()
         loss2 = loss(output, target2.long())
           
         loss_all_test[n_t] = loss2.item()
-        iterations_all_test[n_t] = n_t
         
     print('done')
     
     rnn_out = {'rates':         rates_all_test,
                'outputs':       outputs_all_test,
                'loss':          loss_all_test,
-               'iterations':    iterations_all_test,
                }
     return rnn_out
 

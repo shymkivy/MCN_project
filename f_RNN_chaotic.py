@@ -23,7 +23,7 @@ class RNN_chaotic(nn.Module):
         self.i2h = nn.Linear(input_size, hidden_size)
         self.h2h = nn.Linear(hidden_size, hidden_size);
         self.h2o = nn.Linear(hidden_size, output_size)
-        self.softmax = nn.LogSoftmax(dim=1)
+        self.softmax = nn.LogSoftmax(dim=0)
         self.tanh = nn.Tanh()
         #self.sigmoid = nn.Sigmoid()
         
@@ -50,20 +50,22 @@ class RNN_chaotic(nn.Module):
         
         self.i2h.weight.data = wi2h;
         
+    def recurrence(self, input_sig, rate):
+        # can try relu here
+        rate_new = self.tanh(self.i2h(input_sig) + self.h2h(rate))
+        rate_new = (1-self.alpha)*rate + self.alpha*rate_new
         
+        return rate_new
     
     def forward(self, input_sig, rate):
         
-        rate_new = self.tanh(self.i2h(input_sig) + self.h2h(rate))
-    
-        rate_new = (1-self.alpha)*rate + self.alpha*rate_new
-        
+        rate_new = self.recurrence(input_sig, rate)
         output = self.softmax(self.h2o(rate_new))
         
         return output, rate_new
         
     def init_rate(self):
-        rate = torch.empty(1, self.hidden_size);
+        rate = torch.empty(self.hidden_size);
         nn.init.uniform_(rate, a=-1, b=1)
         return rate
     
