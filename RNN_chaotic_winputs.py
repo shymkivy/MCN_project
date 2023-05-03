@@ -40,7 +40,7 @@ from datetime import datetime
 #%% params
 compute_loss = 1
 train_RNN = 1
-save_RNN = 0
+save_RNN = 1
 load_RNN = 0
 plot_deets = 1
 
