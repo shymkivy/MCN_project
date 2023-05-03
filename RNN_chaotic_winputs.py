@@ -35,9 +35,9 @@ from scipy import signal
 from scipy.io import loadmat, savemat
 import skimage.io
 
+from datetime import datetime
 
 #%% params
-
 compute_loss = 1
 train_RNN = 1
 save_RNN = 0
@@ -46,16 +46,19 @@ plot_deets = 1
 
 #%% input params
 
-params = {'train_type':             'linear',     # standard, linear
-          'num_train_trials':       1000,             # for linear 1000; for standard 20, for ~400 bins total
-          'num_train_bouts':        1,            # 1 for linert; 10for standard many
+params = {'train_type':             'standard',     # standard, linear
+          'num_train_trials':       20,             # for linear 20000; for standard 20, for ~400 bins total
+          'num_train_bouts':        500,            # 1 for linert; 10for standard many
+          'bout_reinit_rate':       0,
+          'bout_num_iterations':    20,
           'dt':                     0.05,
-          'num_test_trials':        1000,
+          'num_test_trials':        200,
           'stim_duration':          0.5,
           'isi_suration':           0.5,
           'input_size':             50,
           'hidden_size':            250,            # number of RNN neurons
           'g':                      5,              # recurrent connection strength 
+          'learning_rate':          0.05,           # 0.005
           'num_stim':               20,
           'tau':                    0.5,
           'stim_t_std':             3,              # 3 or 0
@@ -65,13 +68,16 @@ params = {'train_type':             'linear',     # standard, linear
           'plot_deets':             0,
           }
 
-name_tag = '%dktrials_%dstim_std%.0f' % (params['num_train_trials']/1000, params['num_stim'], params['stim_t_std'])
+now1 = datetime.now()
+
+name_tag = '%s_%dtrials_%dstim_std%.0f_%d_%d_%d_%dh_%dm' % (params['train_type'], params['num_train_trials'],
+            params['num_stim'], params['stim_t_std'], now1.year, now1.month, now1.day, now1.hour, now1.minute)
 
 #%%
 
 #fname_RNN_load = 'test_20k_std3'
 #fname_RNN_load = '50k_20stim_std3';
-fname_RNN_load = name_tag
+fname_RNN_load = name_tag  + '_RNN'
 
 #fname_RNN_save = 'test_50k_std4'
 #fname_RNN_save = '50k_20stim_std3'
@@ -79,7 +85,7 @@ fname_RNN_save = name_tag
 
 #%% generate train data
 
-plt.close('all')
+#plt.close('all')
 
 # generate stim templates
 
@@ -152,11 +158,7 @@ output_size = params['num_stim'] + 1
 hidden_size = params['hidden_size'];
 alpha = params['dt']/params['tau'];         
 
-if params['train_type'] == 'standard':
-    rnn = RNN_chaotic_standard(params['input_size'], params['hidden_size'], output_size, alpha)
-else:
-    rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, alpha)
-
+rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, alpha)
 rnn.init_weights(params['g'])
 
 loss = nn.NLLLoss()
@@ -181,7 +183,8 @@ else:
  #%%
 if save_RNN and train_RNN:
     print('Saving RNN %s' % fname_RNN_save)
-    torch.save(rnn.state_dict(), path1 + '/RNN_data/' + fname_RNN_save)
+    torch.save(rnn.state_dict(), path1 + '/RNN_data/' + fname_RNN_save  + '_RNN')
+    np.save(path1 + '/RNN_data/' + fname_RNN_save + '_params.npy', params) 
 
 #%% test
 test_cont = f_RNN_test(rnn, loss, input_test_cont, output_test_cont, params)
@@ -198,11 +201,23 @@ sm_bin = round(1/params['dt'])*50;
 trial_len = out_temp_all.shape[1]
 kernel = np.ones(sm_bin)/sm_bin
 
-loss_train_cont_sm = np.convolve(train_cont['loss'], kernel, mode='valid')
+loss_train = train_cont['loss'].T.flatten()
+
+loss_train_cont_sm = np.convolve(loss_train, kernel, mode='valid')
 loss_test_cont_sm = np.convolve(test_cont['loss'], kernel, mode='valid')
 
 loss_x = np.arange(len(loss_train_cont_sm))/(trial_len)
+loss_x_raw = np.arange(len(loss_train))/(trial_len)
 loss_x_test = np.arange(len(loss_test_cont_sm))/(trial_len)
+
+
+plt.figure()
+plt.plot(loss_x_raw, loss_train)
+plt.plot(loss_x_test, loss_test_cont_sm)
+plt.legend(('train', 'test'))
+plt.xlabel('trials')
+plt.ylabel('NLL loss')
+plt.title(fname_RNN_save)
 
 
 plt.figure()

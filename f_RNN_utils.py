@@ -180,7 +180,7 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
 
 #%%
 
-def f_plot_rates(rates, num_cells_plot = 999999):
+def f_plot_rates2(rates, num_cells_plot = 999999):
     
     spacing = np.ceil(np.max(rates) - np.min(rates))  
     num_cells = rates.shape[0]

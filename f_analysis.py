@@ -35,9 +35,30 @@ def seriation(Z,N,cur_index):
 def f_plot_rates(rnn_data, input_sig, target, title_tag):
     
     rates_all = rnn_data['rates']
-    loss_all = rnn_data['loss']
+    
     outputs_all = rnn_data['outputs']
-
+    if 'lossT' in rnn_data.keys():
+        loss_all = rnn_data['lossT']
+    else:
+        loss_all = rnn_data['loss']
+    
+    shape1 = rates_all.shape
+    
+    iter1 = 0
+    
+    if len(shape1) == 4:
+        rates_all = rates_all[:,:,iter1,-1]
+        if 'lossT' in rnn_data.keys():
+            loss_all = loss_all[:,iter1,-1]
+        else:
+            loss_all = loss_all[iter1,-1]
+        outputs_all = outputs_all[:,:,iter1,-1]
+        input_sig = input_sig[:,:,-1]
+        target = target[:,:,-1]
+        name_tag = 'trial train; bout%d; iter%d' % (shape1[3], iter1)
+    else:
+        name_tag = 'linear train'
+    
     num_plots = 10;
     
     plot_cells = np.sort(sample(range(rates_all.shape[0]), num_plots));
@@ -48,7 +69,7 @@ def f_plot_rates(rnn_data, input_sig, target, title_tag):
     for n_plt in range(num_plots):  
         shift = n_plt*2.5    
         ax1.plot(rates_all[plot_cells[n_plt],:]+shift)
-    plt.title(title_tag + ' example cells')
+    plt.title(title_tag + ' example cells' + name_tag)
     plt.axis('off')
    # plt.xticks([])
     plt.subplot(spec[1], sharex=ax1)

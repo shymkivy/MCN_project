@@ -18,11 +18,10 @@ def f_RNN_linear_train(rnn, loss, input_train, output_train, params):
     
     hidden_size = params['hidden_size'];     
     output_size = params['num_stim'] + 1
+    learning_rate = params['learning_rate']
     
     rate = rnn.init_rate();
     
-    
-    learning_rate = 0.005
     optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)   
 
     # initialize 
@@ -57,7 +56,7 @@ def f_RNN_linear_train(rnn, loss, input_train, output_train, params):
         
         optimizer.zero_grad()
         
-        output, rate_new = rnn.forward(input_sig[:,n_t], rate)
+        output, rate_new = rnn.forward_linear(input_sig[:,n_t], rate)
         
         rates_all[:,n_t] = rate_new.detach().numpy()
         
@@ -74,7 +73,7 @@ def f_RNN_linear_train(rnn, loss, input_train, output_train, params):
         loss_all[n_t] = loss2.item()
         
         # Compute the running loss every 10 steps
-        if (n_t % 100) == 0:
+        if (n_t % 1000) == 0:
             print('Step %d/%d, Loss %0.3f, Time %0.1fs' % (n_t, T, loss2.item(), time.time() - start_time))
         
     print('Done')
@@ -95,8 +94,10 @@ def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
     
     hidden_size = params['hidden_size'];     
     output_size = params['num_stim'] + 1
+    reinit_rate = params['bout_reinit_rate']
+    num_it = params['bout_num_iterations']
+    learning_rate = params['learning_rate']
     
-    learning_rate = 0.005
     optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)   
 
     # initialize 
@@ -106,8 +107,7 @@ def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
     input_sig = torch.tensor(input_train).float()
     target = torch.tensor(output_train).float()
     
-    reinit_rate = 0
-    num_it = 500
+    
     
     #outputs_all = torch.zeros((output_size, T, num_it, num_bouts))
     #rates_all = torch.zeros((hidden_size, T, num_it, num_bouts))
@@ -115,6 +115,7 @@ def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
     rates_all = np.zeros((hidden_size, T, num_it, num_bouts));
     outputs_all = np.zeros((output_size, T, num_it, num_bouts));
     loss_all = np.zeros((num_it, num_bouts));
+    loss_all_T = np.zeros((T, num_it, num_bouts));
 
     # can adjust bias here 
     #rnn.h2h.bias.data  = rnn.h2h.bias.data -2
@@ -153,13 +154,16 @@ def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
             
             loss_all[n_it, n_bt] = loss2.item()
             
+            for n_t in range(T):
+                loss_all_T[n_t, n_it, n_bt] = loss(output[:,n_t], target2[n_t].long()).item()
+            
             if reinit_rate:
                 rate_start = rnn.init_rate()
             else:
                 rate_start = rate[:,-1].detach()
 
             # Compute the running loss every 10 steps
-            if (n_it % 100) == 0:
+            if ((n_it) % 10) == 0:
                 print('bout %d, Step %d, Loss %0.3f, Time %0.1fs' % (n_bt, n_it, loss2.item(), time.time() - start_time))
 
 
@@ -175,6 +179,7 @@ def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
     rnn_out = {'rates':         rates_all,
                'outputs':       outputs_all,
                'loss':          loss_all,
+               'lossT':         loss_all_T,
                }
     return rnn_out   
 #%%
@@ -195,7 +200,7 @@ def f_RNN_test(rnn, loss, input_test, output_test, params):
 
     for n_t in range(T):
         
-        output, rate_new = rnn.forward(input_sig_test[:,n_t], rate_test)
+        output, rate_new = rnn.forward_linear(input_sig_test[:,n_t], rate_test)
         
         rates_all_test[:,n_t] = rate_new.detach().numpy();
         
