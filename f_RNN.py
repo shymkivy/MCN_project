@@ -22,8 +22,9 @@ def f_RNN_linear_train(rnn, loss, input_train, output_train, params):
     
     rate = rnn.init_rate();
     
-    optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)   
-
+    #optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate) 
+    optimizer = torch.optim.AdamW(rnn.parameters(), lr=learning_rate) 
+    
     # initialize 
 
     T = input_train.shape[1]
@@ -58,15 +59,23 @@ def f_RNN_linear_train(rnn, loss, input_train, output_train, params):
         
         output, rate_new = rnn.forward_linear(input_sig[:,n_t], rate)
         
+        target2 = torch.argmax(target[:,n_t]) # * torch.ones(1) # torch.tensor()
+        
+        # crossentropy
+        loss2 = loss(output, target2.long())
+        output_sm = output
+        
+        # for nnnlosss
+        #output_sm = rnn.softmax1(output)   
+        #loss2 = loss(output_sm, target2.long())
+        
         rates_all[:,n_t] = rate_new.detach().numpy()
         
         rate = rate_new.detach();
 
-        outputs_all[:,n_t] = output.detach().numpy()
+        outputs_all[:,n_t] = output_sm.detach().numpy()
         
-        target2 = torch.argmax(target[:,n_t]) # * torch.ones(1) # torch.tensor()
-        loss2 = loss(output, target2.long())
-        
+
         loss2.backward() # retain_graph=True
         optimizer.step()
             
@@ -98,7 +107,8 @@ def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
     num_it = params['bout_num_iterations']
     learning_rate = params['learning_rate']
     
-    optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate)   
+    #optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate) 
+    optimizer = torch.optim.AdamW(rnn.parameters(), lr=learning_rate) 
 
     # initialize 
 
@@ -142,20 +152,137 @@ def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
             optimizer.zero_grad()
             
             output, rate = rnn.forward(input_sig[:,:, n_bt], rate_start)
-    
+            
             target2 = torch.argmax(target[:,:, n_bt], dim =0) * torch.ones(T)
+            
+            # for crossentropy
             loss2 = loss(output.T, target2.long())
+            output_sm = output
+            
+            # for nnnlosss
+            #output_sm = rnn.softmax(output)        
+            #loss2 = loss(output_sm.T, target2.long())
             
             loss2.backward() # retain_graph=True
             optimizer.step()
             
             rates_all[:,:, n_it, n_bt] = rate.detach().numpy()
-            outputs_all[:,:, n_it, n_bt] = output.detach().numpy()
+            outputs_all[:,:, n_it, n_bt] = output_sm.detach().numpy()
             
             loss_all[n_it, n_bt] = loss2.item()
             
             for n_t in range(T):
-                loss_all_T[n_t, n_it, n_bt] = loss(output[:,n_t], target2[n_t].long()).item()
+                loss_all_T[n_t, n_it, n_bt] = loss(output_sm[:,n_t], target2[n_t].long()).item()
+            
+            if reinit_rate:
+                rate_start = rnn.init_rate()
+            else:
+                rate_start = rate[:,-1].detach()
+
+            # Compute the running loss every 10 steps
+            if ((n_it) % 10) == 0:
+                print('bout %d, Step %d, Loss %0.3f, Time %0.1fs' % (n_bt, n_it, loss2.item(), time.time() - start_time))
+
+
+    print('Done')
+    
+    if params['plot_deets']:
+        f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'final ')
+        
+        plt.figure()
+        plt.plot(loss_all)
+        plt.title('bouts loss')
+    
+    rnn_out = {'rates':         rates_all,
+               'outputs':       outputs_all,
+               'loss':          loss_all,
+               'lossT':         loss_all_T,
+               }
+    return rnn_out   
+
+#%%
+
+def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train, output_train_ctx, params):
+    
+    hidden_size = params['hidden_size'];     
+    output_size = params['num_stim'] + 1
+    reinit_rate = params['bout_reinit_rate']
+    num_it = params['bout_num_iterations']
+    learning_rate = params['learning_rate']
+    
+    #optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate) 
+    optimizer = torch.optim.AdamW(rnn.parameters(), lr=learning_rate) 
+
+    # initialize 
+
+    input_size, T, num_bouts = input_train.shape
+
+    input_sig = torch.tensor(input_train).float()
+    target = torch.tensor(output_train).float()
+    target_ctx = torch.tensor(output_train_ctx).float()
+    
+    
+    #outputs_all = torch.zeros((output_size, T, num_it, num_bouts))
+    #rates_all = torch.zeros((hidden_size, T, num_it, num_bouts))
+    
+    rates_all = np.zeros((hidden_size, T, num_it, num_bouts));
+    outputs_all = np.zeros((output_size, T, num_it, num_bouts));
+    loss_all = np.zeros((num_it, num_bouts));
+    loss_all_T = np.zeros((T, num_it, num_bouts));
+
+    # can adjust bias here 
+    #rnn.h2h.bias.data  = rnn.h2h.bias.data -2
+    #np.std(np.asarray(rnn.h2h.weight ).flatten())
+
+    #
+    if params['plot_deets']:
+        plt.figure()
+        plt.plot(np.std(input_train, axis=0))
+        plt.title('std of inputs vs time')
+
+        f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'initial ')
+
+    print('Starting trial training')
+    
+    start_time = time.time()
+    
+    for n_bt in range(num_bouts):
+         
+        rate_start = rnn.init_rate()
+        
+        for n_it in range(num_it):
+            
+            optimizer.zero_grad()
+            
+            output, output_ctx, rate = rnn.forward_ctx(input_sig[:,:, n_bt], rate_start)
+            
+            target2 = torch.argmax(target[:,:, n_bt], dim =0) * torch.ones(T)
+            
+            target2_ctx = torch.argmax(target_ctx[:,:, n_bt], dim =0) * torch.ones(T)
+            
+
+            # for crossentropy
+            loss2 = loss(output.T, target2.long())
+            output_sm = output
+            
+            loss2_ctx = loss(output_ctx.T, target2_ctx.long())
+            
+            total_loss = loss2 + loss2_ctx
+            
+            # for nnnlosss
+            #output_sm = rnn.softmax(output)        
+            #loss2 = loss(output_sm.T, target2.long())
+            
+            total_loss.backward() # retain_graph=True
+            optimizer.step()
+            
+            rates_all[:,:, n_it, n_bt] = rate.detach().numpy()
+            outputs_all[:,:, n_it, n_bt] = output_sm.detach().numpy()
+            
+            loss_all[n_it, n_bt] = loss2.item()
+            
+            for n_t in range(T):
+                loss_all_T[n_t, n_it, n_bt] = loss(output_sm[:,n_t], target2[n_t].long()).item()
             
             if reinit_rate:
                 rate_start = rnn.init_rate()
@@ -202,14 +329,25 @@ def f_RNN_test(rnn, loss, input_test, output_test, params):
         
         output, rate_new = rnn.forward_linear(input_sig_test[:,n_t], rate_test)
         
+        target2 = torch.argmax(target_test[:,n_t])# * torch.ones(1) # torch.tensor()
+        
+        # crossentropy
+        loss2 = loss(output, target2.long())
+        output_sm = output
+        
+        # nnnloss
+        #output_sm = rnn.softmax(output)
+        #loss2 = loss(output_sm, target2.long())
+        
+        
         rates_all_test[:,n_t] = rate_new.detach().numpy();
         
         rate_test = rate_new.detach();
 
-        outputs_all_test[:,n_t] = output.detach().numpy();
+        outputs_all_test[:,n_t] = output_sm.detach().numpy();
         
-        target2 = torch.argmax(target_test[:,n_t])# * torch.ones(1) # torch.tensor()
-        loss2 = loss(output, target2.long())
+        
+        
           
         loss_all_test[n_t] = loss2.item()
         

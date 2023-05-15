@@ -13,16 +13,20 @@ import torch.nn as nn
 #%%
 
 class RNN_chaotic(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, alpha):
+    def __init__(self, input_size, hidden_size, output_size_freq, output_size_ctx, alpha):
         super(RNN_chaotic, self).__init__()
         
         self.hidden_size = hidden_size
         self.input_size = input_size
-        self.output_size = output_size
+        self.output_size = output_size_freq
+        self.output_size_ctx = output_size_ctx
         self.alpha = alpha
         self.i2h = nn.Linear(input_size, hidden_size)
-        self.h2h = nn.Linear(hidden_size, hidden_size);
-        self.h2o = nn.Linear(hidden_size, output_size)
+        self.h2h = nn.Linear(hidden_size, hidden_size)
+        self.h2o = nn.Linear(hidden_size, output_size_freq)
+        if output_size_ctx:
+            
+            self.h2o_ctx = nn.Linear(hidden_size, output_size_ctx)
         self.softmax = nn.LogSoftmax(dim=0)
         self.tanh = nn.Tanh()
         #self.sigmoid = nn.Sigmoid()
@@ -60,7 +64,7 @@ class RNN_chaotic(nn.Module):
     def forward_linear(self, input_sig, rate):
         
         rate_new = self.recurrence(input_sig, rate)
-        output = self.softmax(self.h2o(rate_new))
+        output = self.h2o(rate_new)
         
         return output, rate_new
         
@@ -79,9 +83,36 @@ class RNN_chaotic(nn.Module):
         rate_all2 = torch.stack(rate_all, dim=1)
         #outputs_all2 = torch.stack(outputs_all, dim=1)
             
-        output = self.softmax(self.h2o(rate_all2.T).T)
+        output = self.h2o(rate_all2.T).T
         
         return output, rate_all2
+    
+    def forward_ctx(self, input_sig, rate):
+        
+        rate_all = []
+        #outputs_all = []
+        num_steps = input_sig.size(1)
+        
+        for n_st in range(num_steps):
+            rate = self.recurrence(input_sig[:,n_st], rate)
+            rate_all.append(rate)
+            
+            #outputs_all.append(self.softmax(self.h2o(rate)))
+            
+        rate_all2 = torch.stack(rate_all, dim=1)
+        #outputs_all2 = torch.stack(outputs_all, dim=1)
+            
+        output = self.h2o(rate_all2.T).T
+        
+        output_ctx = self.h2o_ctx(rate_all2.T).T
+        
+        return output, output_ctx, rate_all2
+    
+    def softmax1(self, output):
+        
+        output_sm = self.softmax(output)
+        
+        return output_sm
     
     def init_rate(self):
         rate = torch.empty(self.hidden_size);
