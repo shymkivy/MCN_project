@@ -202,7 +202,111 @@ def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
 
 #%%
 
-def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train, output_train_ctx, params):
+def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train_ctx, params):
+    
+    hidden_size = params['hidden_size'];     
+    output_size = params['num_stim'] + 1
+    reinit_rate = params['bout_reinit_rate']
+    num_it = params['bout_num_iterations']
+    learning_rate = params['learning_rate']
+    
+    #optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate) 
+    optimizer = torch.optim.AdamW(rnn.parameters(), lr=learning_rate) 
+
+    # initialize 
+
+    input_size, T, num_bouts = input_train.shape
+
+    input_sig = torch.tensor(input_train).float()
+    target_ctx = torch.tensor(output_train_ctx).float()
+    
+    
+    #outputs_all = torch.zeros((output_size, T, num_it, num_bouts))
+    #rates_all = torch.zeros((hidden_size, T, num_it, num_bouts))
+    
+    rates_all = np.zeros((hidden_size, T, num_it, num_bouts));
+    outputs_all = np.zeros((output_size, T, num_it, num_bouts));
+    loss_all = np.zeros((num_it, num_bouts));
+    loss_all_T = np.zeros((T, num_it, num_bouts));
+
+    # can adjust bias here 
+    #rnn.h2h.bias.data  = rnn.h2h.bias.data -2
+    #np.std(np.asarray(rnn.h2h.weight ).flatten())
+
+    #
+    if params['plot_deets']:
+        plt.figure()
+        plt.plot(np.std(input_train, axis=0))
+        plt.title('std of inputs vs time')
+
+        f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'initial ')
+
+    print('Starting trial training')
+    
+    start_time = time.time()
+    
+    for n_bt in range(num_bouts):
+         
+        rate_start = rnn.init_rate()
+        
+        for n_it in range(num_it):
+            
+            optimizer.zero_grad()
+            
+            output, output_ctx, rate = rnn.forward_ctx(input_sig[:,:, n_bt], rate_start)
+            
+            target2_ctx = torch.argmax(target_ctx[:,:, n_bt], dim =0) * torch.ones(T)
+            
+            output_sm = output_ctx
+            
+            loss2_ctx = loss(output_ctx.T, target2_ctx.long())
+            
+            total_loss = loss2_ctx
+            
+            # for nnnlosss
+            #output_sm = rnn.softmax(output)        
+            #loss2 = loss(output_sm.T, target2.long())
+            
+            total_loss.backward() # retain_graph=True
+            optimizer.step()
+            
+            rates_all[:,:, n_it, n_bt] = rate.detach().numpy()
+            outputs_all[:,:, n_it, n_bt] = output_sm.detach().numpy()
+            
+            loss_all[n_it, n_bt] = loss2.item()
+            
+            for n_t in range(T):
+                loss_all_T[n_t, n_it, n_bt] = loss(output_sm[:,n_t], target2[n_t].long()).item()
+            
+            if reinit_rate:
+                rate_start = rnn.init_rate()
+            else:
+                rate_start = rate[:,-1].detach()
+
+            # Compute the running loss every 10 steps
+            if ((n_it) % 10) == 0:
+                print('bout %d, Step %d, Loss %0.3f, Time %0.1fs' % (n_bt, n_it, loss2.item(), time.time() - start_time))
+
+
+    print('Done')
+    
+    if params['plot_deets']:
+        f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'final ')
+        
+        plt.figure()
+        plt.plot(loss_all)
+        plt.title('bouts loss')
+    
+    rnn_out = {'rates':         rates_all,
+               'outputs':       outputs_all,
+               'loss':          loss_all,
+               'lossT':         loss_all_T,
+               }
+    return rnn_out   
+
+#%%
+
+def f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train, output_train, output_train_ctx, params):
     
     hidden_size = params['hidden_size'];     
     output_size = params['num_stim'] + 1
@@ -265,7 +369,7 @@ def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train, output_train_ctx
             loss2 = loss(output.T, target2.long())
             output_sm = output
             
-            loss2_ctx = loss(output_ctx.T, target2_ctx.long())
+            loss2_ctx = loss_ctx(output_ctx.T, target2_ctx.long())
             
             total_loss = loss2 + loss2_ctx
             
@@ -291,7 +395,7 @@ def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train, output_train_ctx
 
             # Compute the running loss every 10 steps
             if ((n_it) % 10) == 0:
-                print('bout %d, Step %d, Loss %0.3f, Time %0.1fs' % (n_bt, n_it, loss2.item(), time.time() - start_time))
+                print('bout %d, Step %d, Loss freq %0.3f, loss ctz, Time %0.1fs' % (n_bt, n_it, loss2.item(), loss2_ctx.item(), time.time() - start_time))
 
 
     print('Done')

@@ -46,7 +46,7 @@ plot_deets = 1
 
 #%% input params
 
-params = {'train_type':             'oddball',     # standard, linear
+params = {'train_type':             'freq_oddball',     # standard, linear, oddball, freq_oddball
           'num_train_trials':       20,             # for linear 20000; for standard 20, for ~400 bins total
           'num_train_bouts':        500,            # 1 for linert; 10for standard many
           'bout_reinit_rate':       0,
@@ -173,8 +173,9 @@ alpha = params['dt']/params['tau'];
 rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha)
 rnn.init_weights(params['g'])
 
-loss = nn.NLLLoss()
+#loss = nn.NLLLoss()
 loss = nn.CrossEntropyLoss()
+loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor([0.1, 0.9]))
 
 #%%
 if load_RNN:
@@ -185,8 +186,13 @@ if load_RNN:
 if train_RNN:
     if params['train_type'] == 'standard':
         train_cont = f_RNN_trial_train(rnn, loss, input_train_cont, output_train_cont, params)
-    if params['train_type'] == 'oddball':
-        train_cont = f_RNN_trial_ctx_train(rnn, loss, input_train_oddball_freq, output_train_oddball_freq, output_train_oddball_ctx, params)
+    elif params['train_type'] == 'freq_oddball':
+        train_cont = f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train_oddball_freq, output_train_oddball_freq, output_train_oddball_ctx, params)
+    elif params['train_type'] == 'oddball':
+        train_cont = f_RNN_trial_ctx_train(rnn, loss_ctx, input_train_oddball_freq, output_train_oddball_ctx, params)
+        
+        #train_cont = f_RNN_trial_ctx_train(rnn, loss, input_train_oddball_freq, output_train_oddball_freq, output_train_oddball_ctx, params)
+    
     else:
         train_cont = f_RNN_linear_train(rnn, loss, input_train_cont, output_train_cont, params)
         
@@ -207,6 +213,10 @@ test_cont = f_RNN_test(rnn, loss, input_test_cont, output_test_cont, params)
 
 #%% test oddball
 test_oddball = f_RNN_test(rnn, loss, input_test_oddball, output_test_oddball, params)
+
+#%% test oddball
+train_oddball = f_RNN_test(rnn, loss_ctx, input_train_oddball_freq, output_train_oddball_ctx, params)
+
 
 #%% test oddball flip
 test_oddball_flip = f_RNN_test(rnn, loss, input_test_oddball_flip, output_test_oddball_flip, params)
