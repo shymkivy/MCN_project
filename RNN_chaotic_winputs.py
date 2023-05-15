@@ -64,7 +64,7 @@ params = {'train_type':             'oddball',     # standard, linear
           'tau':                    0.5,
           'stim_t_std':             3,              # 3 or 0
           'input_noise_std':        1/100,
-          'oddball_stim':           [3, 6],
+          'oddball_stim':           [1,2,3,4,5, 6,7,8,9,10],
           'dd_frac':                0.1,
           'plot_deets':             0,
           }
