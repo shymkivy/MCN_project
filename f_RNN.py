@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 def f_RNN_linear_train(rnn, loss, input_train, output_train, params):
     
     hidden_size = params['hidden_size'];     
-    output_size = params['num_stim'] + 1
+    output_size = params['num_freq_stim'] + 1
     learning_rate = params['learning_rate']
     
     rate = rnn.init_rate();
@@ -102,9 +102,9 @@ def f_RNN_linear_train(rnn, loss, input_train, output_train, params):
 def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
     
     hidden_size = params['hidden_size'];     
-    output_size = params['num_stim'] + 1
-    reinit_rate = params['bout_reinit_rate']
-    num_it = params['bout_num_iterations']
+    output_size = params['num_freq_stim'] + 1
+    reinit_rate = params['train_reinit_rate']
+    num_it = params['num_iterations_per_samp']
     learning_rate = params['learning_rate']
     
     #optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate) 
@@ -151,7 +151,7 @@ def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
             
             optimizer.zero_grad()
             
-            output, rate = rnn.forward(input_sig[:,:, n_bt], rate_start)
+            output, rate = rnn.forward_freq(input_sig[:,:, n_bt], rate_start)
             
             target2 = torch.argmax(target[:,:, n_bt], dim =0) * torch.ones(T)
             
@@ -205,9 +205,10 @@ def f_RNN_trial_train(rnn, loss, input_train, output_train, params):
 def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train_ctx, params):
     
     hidden_size = params['hidden_size'];     
-    output_size = params['num_stim'] + 1
-    reinit_rate = params['bout_reinit_rate']
-    num_it = params['bout_num_iterations']
+    num_stim = params['num_freq_stim'] + 1
+    output_size = params['num_ctx'];
+    reinit_rate = params['train_reinit_rate']
+    num_it = params['num_iterations_per_samp']
     learning_rate = params['learning_rate']
     
     #optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate) 
@@ -219,6 +220,21 @@ def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train_ctx, params):
 
     input_sig = torch.tensor(input_train).float()
     target_ctx = torch.tensor(output_train_ctx).float()
+    
+    
+    if 1: # params['plot_deets']
+        plots1 = 4;
+        plt.figure()
+        for n1 in range(plots1):
+            idx1 = np.random.choice(num_bouts)
+            plt.subplot(plots1*2, 1, (n1+1)*2-1)
+            plt.imshow(input_train[:,:,idx1], aspect="auto")
+            plt.title('run %d' % idx1)
+            plt.ylabel('input')
+            plt.subplot(plots1*2, 1, (n1+1)*2)
+            plt.imshow(output_train_ctx[:,:,idx1], aspect="auto")
+            plt.ylabel('target')
+        plt.show()
     
     
     #outputs_all = torch.zeros((output_size, T, num_it, num_bouts))
@@ -253,21 +269,19 @@ def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train_ctx, params):
             
             optimizer.zero_grad()
             
-            output, output_ctx, rate = rnn.forward_ctx(input_sig[:,:, n_bt], rate_start)
+            output_ctx, rate = rnn.forward_ctx(input_sig[:,:, n_bt], rate_start)
             
             target2_ctx = torch.argmax(target_ctx[:,:, n_bt], dim =0) * torch.ones(T)
             
             output_sm = output_ctx
             
-            loss2_ctx = loss(output_ctx.T, target2_ctx.long())
-            
-            total_loss = loss2_ctx
+            loss2 = loss(output_ctx.T, target2_ctx.long())
             
             # for nnnlosss
             #output_sm = rnn.softmax(output)        
             #loss2 = loss(output_sm.T, target2.long())
             
-            total_loss.backward() # retain_graph=True
+            loss2.backward() # retain_graph=True
             optimizer.step()
             
             rates_all[:,:, n_it, n_bt] = rate.detach().numpy()
@@ -276,7 +290,7 @@ def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train_ctx, params):
             loss_all[n_it, n_bt] = loss2.item()
             
             for n_t in range(T):
-                loss_all_T[n_t, n_it, n_bt] = loss(output_sm[:,n_t], target2[n_t].long()).item()
+                loss_all_T[n_t, n_it, n_bt] = loss(output_sm[:,n_t], target2_ctx[n_t].long()).item()
             
             if reinit_rate:
                 rate_start = rnn.init_rate()
@@ -309,9 +323,9 @@ def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train_ctx, params):
 def f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train, output_train, output_train_ctx, params):
     
     hidden_size = params['hidden_size'];     
-    output_size = params['num_stim'] + 1
-    reinit_rate = params['bout_reinit_rate']
-    num_it = params['bout_num_iterations']
+    output_size = params['num_freq_stim'] + 1
+    reinit_rate = params['train_reinit_rate']
+    num_it = params['num_iterations_per_samp']
     learning_rate = params['learning_rate']
     
     #optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate) 
@@ -395,7 +409,7 @@ def f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train, output_train, o
 
             # Compute the running loss every 10 steps
             if ((n_it) % 10) == 0:
-                print('bout %d, Step %d, Loss freq %0.3f, loss ctz, Time %0.1fs' % (n_bt, n_it, loss2.item(), loss2_ctx.item(), time.time() - start_time))
+                print('bout %d, Step %d, Loss freq %0.3f, loss ctx %0.3f, Time %0.1fs' % (n_bt, n_it, loss2.item(), loss2_ctx.item(), time.time() - start_time))
 
 
     print('Done')

@@ -25,7 +25,6 @@ class RNN_chaotic(nn.Module):
         self.h2h = nn.Linear(hidden_size, hidden_size)
         self.h2o = nn.Linear(hidden_size, output_size_freq)
         if output_size_ctx:
-            
             self.h2o_ctx = nn.Linear(hidden_size, output_size_ctx)
         self.softmax = nn.LogSoftmax(dim=0)
         self.tanh = nn.Tanh()
@@ -68,7 +67,7 @@ class RNN_chaotic(nn.Module):
         
         return output, rate_new
         
-    def forward(self, input_sig, rate):
+    def forward_freq(self, input_sig, rate):
         
         rate_all = []
         #outputs_all = []
@@ -88,6 +87,25 @@ class RNN_chaotic(nn.Module):
         return output, rate_all2
     
     def forward_ctx(self, input_sig, rate):
+        
+        rate_all = []
+        #outputs_all = []
+        num_steps = input_sig.size(1)
+        
+        for n_st in range(num_steps):
+            rate = self.recurrence(input_sig[:,n_st], rate)
+            rate_all.append(rate)
+            
+            #outputs_all.append(self.softmax(self.h2o(rate)))
+            
+        rate_all2 = torch.stack(rate_all, dim=1)
+        #outputs_all2 = torch.stack(outputs_all, dim=1)
+            
+        output_ctx = self.h2o_ctx(rate_all2.T).T
+        
+        return output_ctx, rate_all2
+    
+    def forward_dual(self, input_sig, rate):
         
         rate_all = []
         #outputs_all = []

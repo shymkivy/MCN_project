@@ -14,9 +14,9 @@ from scipy import signal
 def f_gen_stim_output_templates(params):
     # generate stim templates
     
-    num_stim = params['num_stim']
+    num_stim = params['num_freq_stim']
     stim_duration = params['stim_duration']
-    isi_suration = params['isi_suration']
+    isi_suration = params['isi_duration']
     input_size = params['input_size']
     dt = params['dt']
     stim_t_std = params['stim_t_std']
@@ -75,9 +75,9 @@ def f_gen_stim_output_templates(params):
 def f_gen_stim_output_templates_thin(params):
     # generate stim templates
     
-    num_stim = params['num_stim']
+    num_stim = params['num_freq_stim']
     stim_duration = params['stim_duration']
-    isi_suration = params['isi_suration']
+    isi_suration = params['isi_duration']
     input_size = params['input_size']
     dt = params['dt']
     stim_t_std = params['stim_t_std']
@@ -141,22 +141,21 @@ def f_gen_cont_seq(num_stim, num_trials, num_repeats = 1):
 
 def f_gen_oddball_seq(oddball_stim, num_trials, dd_frac, num_repeats = 1):
     
-    
-    trials_oddball_stim = np.zeros((num_trials, num_repeats)).astype(int)
+    trials_oddball_freq = np.zeros((num_trials, num_repeats)).astype(int)
     trials_oddball_ctx = np.zeros((num_trials, num_repeats)).astype(int)
-    
+
     for n_rep in range(num_repeats):
-        
+            
         stim_rd = np.random.choice(oddball_stim, size=2, replace=False)
         
         idx_dd = np.less_equal(np.random.random(num_trials), dd_frac)
-        trials_oddball_stim[idx_dd, n_rep] = stim_rd[1]
-        trials_oddball_stim[~idx_dd, n_rep] = stim_rd[0]
+        trials_oddball_freq[idx_dd, n_rep] = stim_rd[1]
+        trials_oddball_freq[~idx_dd, n_rep] = stim_rd[0]
         
         trials_oddball_ctx[idx_dd, n_rep] = 1
         trials_oddball_ctx[~idx_dd, n_rep] = 0
     
-    return trials_oddball_stim.squeeze(), trials_oddball_ctx.squeeze() 
+    return trials_oddball_freq.squeeze(), trials_oddball_ctx.squeeze() 
 
 #%%
 
