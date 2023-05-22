@@ -152,8 +152,8 @@ def f_gen_oddball_seq(oddball_stim, num_trials, dd_frac, num_repeats = 1):
         trials_oddball_freq[idx_dd, n_rep] = stim_rd[1]
         trials_oddball_freq[~idx_dd, n_rep] = stim_rd[0]
         
-        trials_oddball_ctx[idx_dd, n_rep] = 1
-        trials_oddball_ctx[~idx_dd, n_rep] = 0
+        trials_oddball_ctx[idx_dd, n_rep] = 2
+        trials_oddball_ctx[~idx_dd, n_rep] = 1
     
     return trials_oddball_freq.squeeze(), trials_oddball_ctx.squeeze() 
 
@@ -182,8 +182,9 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     
     for n_rep in range(num_repeats):
         input_mat = stim_templates[:,:,input_trials[:,n_rep]].reshape((input_size, T), order='F') + np.random.normal(0,input_noise_std,(input_size, T))
-        input_mat_n = input_mat - np.mean(input_mat)
-        input_mat_all[:,:,n_rep] = input_mat_n/np.std(input_mat_n)
+        input_mat = input_mat - np.mean(input_mat)
+        input_mat/np.std(input_mat)
+        input_mat_all[:,:,n_rep] = input_mat
         output_mat_all[:,:,n_rep] = output_templates[:,:,input_trials[:,n_rep]].reshape((output_size, T), order='F')
         
     

@@ -55,22 +55,22 @@ params = {'train_type':                     'oddball',     # standard, linear, o
           'num_trials_in_train_sample':     40,             # for linear 20000; for standard 20, for ~400 bins total
           
           'num_train_samples_freq':         500,            # 1 for linert; 10for standard many
-          'num_train_samples_ctx':          20000,
+          'num_train_samples_ctx':          5000,
           
           'num_iterations_per_samp':        1,
           'train_reinit_rate':              0,
           
-          'num_trials_in_test_sample':      200,
+          'num_trials_in_test_sample':      70,
           
           'input_size':                     50,
           'hidden_size':                    250,            # number of RNN neurons
-          'g':                              5,              # recurrent connection strength 
+          'g':                              5,  # 1            # recurrent connection strength 
           'tau':                            0.5,
           'learning_rate':                  0.005,           # 0.005
           
           'num_freq_stim':                  10,
           'num_ctx':                        2,
-          'oddball_stim':                   [3, 6],
+          'oddball_stim':                   [3, 5],
           'dd_frac':                        0.1,
           
           
@@ -104,35 +104,46 @@ fname_RNN_save = name_tag
 
 stim_temp_all, out_temp_all = f_gen_stim_output_templates(params)
 
-out_temp_ctx_all = out_temp_all[1:3,:,1:3]
+out_temp_ctx_all = out_temp_all[:3,:,:3]
 
 stim_temp2, out_temp2 = f_gen_stim_output_templates_thin(params)
 
 
 oddball_stim = params['oddball_stim'].copy()
 
+
+# train control trials 
 trials_train_cont = f_gen_cont_seq(params['num_freq_stim'], params['num_trials_in_train_sample'], params['num_train_samples_freq'])
-
-trials_train_oddball_freq, trials_train_oddball_ctx = f_gen_oddball_seq(oddball_stim, params['num_trials_in_train_sample'], params['dd_frac'], params['num_train_samples_ctx'])
-
-trials_test_cont = f_gen_cont_seq(params['num_freq_stim'], params['num_trials_in_test_sample'], 1)
-
-trials_test_oddball, _ = f_gen_oddball_seq(oddball_stim, params['num_trials_in_test_sample'], params['dd_frac'], 1)
-
-
 
 input_train_cont, output_train_cont = f_gen_input_output_from_seq(trials_train_cont, stim_temp_all, out_temp_all, params)
 
 
-input_train_oddball, output_train_oddball_freq = f_gen_input_output_from_seq(trials_train_oddball_freq, stim_temp_all, out_temp_all, params)
+# train oddball trials 
+trials_train_oddball_freq, trials_train_oddball_ctx = f_gen_oddball_seq(oddball_stim, params['num_trials_in_train_sample'], params['dd_frac'], params['num_train_samples_ctx'])
 
+input_train_oddball, output_train_oddball_freq = f_gen_input_output_from_seq(trials_train_oddball_freq, stim_temp_all, out_temp_all, params)
 _, output_train_oddball_ctx = f_gen_input_output_from_seq(trials_train_oddball_ctx, stim_temp_all, out_temp_ctx_all, params)
 
 
+# test control trials
+trials_test_cont = f_gen_cont_seq(params['num_freq_stim'], params['num_trials_in_test_sample'], 1)
+
 input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_temp_all, out_temp_all, params)
 
-input_test_oddball, output_test_oddball = f_gen_input_output_from_seq(trials_test_oddball, stim_temp_all, out_temp_all, params)
 
+# test oddball trials
+num_repeats = 10
+trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq(oddball_stim, params['num_trials_in_test_sample'], params['dd_frac'], num_repeats)
+
+input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_temp_all, out_temp_all, params)
+_, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_temp_all, out_temp_ctx_all, params)
+
+shape1 = input_test_oddball.shape
+input_test_oddball2 = np.reshape(input_test_oddball, (shape1[0], shape1[1]*shape1[2]), order='F')
+shape1 = output_test_oddball_freq.shape
+output_test_oddball_freq2 = np.reshape(output_test_oddball_freq, (shape1[0], shape1[1]*shape1[2]), order='F')
+shape1 = output_test_oddball_ctx.shape
+output_test_oddball_ctx2 = np.reshape(output_test_oddball_ctx, (shape1[0], shape1[1]*shape1[2]), order='F')
 
 if params['plot_deets']:
     input_plot = input_test_cont
@@ -172,7 +183,7 @@ if params['plot_deets']:
 #%% initialize RNN 
 
 output_size = params['num_freq_stim'] + 1
-output_size_ctx = params['num_ctx']
+output_size_ctx = params['num_ctx'] + 1
 hidden_size = params['hidden_size'];
 alpha = params['dt']/params['tau'];         
 
@@ -182,7 +193,7 @@ rnn.init_weights(params['g'])
 #%%
 #loss = nn.NLLLoss()
 loss = nn.CrossEntropyLoss()
-loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor([0.1, 0.9]))
+loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor([0.00000000001, 0.1, 0.9]))
 
 #%%
 if load_RNN:
@@ -219,14 +230,15 @@ if save_RNN and train_RNN:
 test_cont = f_RNN_test(rnn, loss, input_test_cont, output_test_cont, params)
 
 #%% test oddball
-test_oddball = f_RNN_test(rnn, loss, input_test_oddball, output_test_oddball, params)
+test_oddball = f_RNN_test(rnn, loss, input_test_oddball2, output_test_oddball_freq2, params)
+
+
+test_oddball_ctx = f_RNN_test_ctx(rnn, loss, loss_ctx, input_test_oddball2, output_test_oddball_freq2, output_test_oddball_ctx2, params)
 
 #%% test oddball
-train_oddball = f_RNN_test(rnn, loss_ctx, input_train_oddball_freq, output_train_oddball_ctx, params)
 
+#train_oddball = f_RNN_test(rnn, loss_ctx, input_train_oddball_freq, output_train_oddball_ctx, params)
 
-#%% test oddball flip
-test_oddball_flip = f_RNN_test(rnn, loss, input_test_oddball_flip, output_test_oddball_flip, params)
 
 #%%
 
@@ -244,8 +256,8 @@ loss_x_test = np.arange(len(loss_test_cont_sm)) #/(trial_len)
 
 
 plt.figure()
-plt.plot(loss_x_raw, loss_train)
-plt.plot(loss_x_test, loss_test_cont_sm)
+plt.semilogy(loss_x_raw, loss_train)
+plt.semilogy(loss_x_test, loss_test_cont_sm)
 plt.legend(('train', 'test'))
 plt.xlabel('trials')
 plt.ylabel('NLL loss')
@@ -253,8 +265,8 @@ plt.title(fname_RNN_save)
 
 
 plt.figure()
-plt.plot(loss_x, loss_train_cont_sm)
-plt.plot(loss_x_test, loss_test_cont_sm)
+plt.semilogy(loss_x, loss_train_cont_sm)
+plt.semilogy(loss_x_test, loss_test_cont_sm)
 plt.legend(('train', 'test'))
 plt.xlabel('trials')
 plt.ylabel('NLL loss')
@@ -267,6 +279,13 @@ f_plot_rates(train_cont, input_train_cont, output_train_cont, 'train')
 f_plot_rates(test_cont, input_test_cont, output_test_cont, 'test cont')
 
 f_plot_rates(test_oddball, input_test_oddball, output_test_oddball, 'test oddball')
+
+#%%
+
+f_plot_rates(test_oddball_ctx, input_test_oddball, output_test_oddball_freq, 'test oddball')
+
+f_plot_rates_ctx(test_oddball_ctx, input_test_oddball2, output_test_oddball_ctx2, 'test oddball')
+
 
 #%% analyze tuning 
 

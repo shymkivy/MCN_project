@@ -66,6 +66,14 @@ class RNN_chaotic(nn.Module):
         output = self.h2o(rate_new)
         
         return output, rate_new
+    
+    def forward_linear_ctx(self, input_sig, rate):
+        
+        rate_new = self.recurrence(input_sig, rate)
+        output = self.h2o(rate_new)
+        output_ctx = self.h2o_ctx(rate_new)
+        
+        return output, output_ctx, rate_new
         
     def forward_freq(self, input_sig, rate):
         

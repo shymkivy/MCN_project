@@ -206,7 +206,7 @@ def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train_ctx, params):
     
     hidden_size = params['hidden_size'];     
     num_stim = params['num_freq_stim'] + 1
-    output_size = params['num_ctx'];
+    output_size = params['num_ctx'] + 1
     reinit_rate = params['train_reinit_rate']
     num_it = params['num_iterations_per_samp']
     learning_rate = params['learning_rate']
@@ -475,5 +475,69 @@ def f_RNN_test(rnn, loss, input_test, output_test, params):
                'outputs':       outputs_all_test,
                'loss':          loss_all_test,
                }
+    return rnn_out
+
+#%%
+
+def f_RNN_test_ctx(rnn, loss, loss_ctx, input_test, output_test, output_test_ctx, params):
+    hidden_size = params['hidden_size'];  
+    
+    T = input_test.shape[1]
+    output_size = output_test.shape[0]
+    output_size_ctx = output_test_ctx.shape[0]
+    
+    input_sig_test = torch.tensor(input_test).float()
+    target_test = torch.tensor(output_test).float()
+    target_test_ctx = torch.tensor(output_test_ctx).float()
+    
+    rate_test = rnn.init_rate();
+    
+    rates_all_test = np.zeros((hidden_size, T))
+    outputs_all_test = np.zeros((output_size, T));
+    outputs_all_test_ctx = np.zeros((output_size_ctx, T));
+    loss_all_test = np.zeros((T));
+    loss_all_test_ctx = np.zeros((T));
+    
+    for n_t in range(T):
+        
+        output, output_ctx, rate_new = rnn.forward_linear_ctx(input_sig_test[:,n_t], rate_test)
+        
+        target2 = torch.argmax(target_test[:,n_t])# * torch.ones(1) # torch.tensor()
+        
+        # crossentropy
+        loss2 = loss(output, target2.long())
+        output_sm = output
+        
+        
+        target2_ctx = torch.argmax(target_test_ctx[:,n_t])
+        
+        loss2_ctx = loss_ctx(output_ctx, target2_ctx.long())
+        output_ctx_sm = output_ctx
+        
+        # nnnloss
+        #output_sm = rnn.softmax(output)
+        #loss2 = loss(output_sm, target2.long())
+        
+        
+        rates_all_test[:,n_t] = rate_new.detach().numpy();
+        
+        rate_test = rate_new.detach();
+
+        outputs_all_test[:,n_t] = output_sm.detach().numpy();
+        
+        outputs_all_test_ctx[:,n_t] = output_ctx_sm.detach().numpy();
+        
+        loss_all_test[n_t] = loss2.item()
+        loss_all_test_ctx[n_t] = loss2_ctx.item()
+        
+    print('done')
+    
+    rnn_out = {'rates':         rates_all_test,
+               'outputs':       outputs_all_test,
+               'loss':          loss_all_test,
+               'outputs_ctx':   outputs_all_test_ctx,
+               'loss_ctx':      loss_all_test_ctx,
+               }
+    
     return rnn_out
 
