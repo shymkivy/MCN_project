@@ -52,6 +52,11 @@ class RNN_chaotic(nn.Module):
         wi2h = wi2h * std1;
         
         self.i2h.weight.data = wi2h;
+    
+    def init_rate(self, batch_size=1):
+        rate = torch.empty((self.hidden_size, batch_size));
+        nn.init.uniform_(rate, a=-1, b=1)
+        return rate
         
     def recurrence(self, input_sig, rate):
         # can try relu here
@@ -101,7 +106,7 @@ class RNN_chaotic(nn.Module):
         num_steps = input_sig.size(1)
         
         for n_st in range(num_steps):
-            rate = self.recurrence(input_sig[:,n_st], rate)
+            rate = self.recurrence(input_sig[:,n_st,:], rate)
             rate_all.append(rate)
             
             #outputs_all.append(self.softmax(self.h2o(rate)))
@@ -140,10 +145,7 @@ class RNN_chaotic(nn.Module):
         
         return output_sm
     
-    def init_rate(self):
-        rate = torch.empty(self.hidden_size);
-        nn.init.uniform_(rate, a=-1, b=1)
-        return rate
+    
     
 
     

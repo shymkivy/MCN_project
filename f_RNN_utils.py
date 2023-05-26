@@ -133,29 +133,37 @@ def f_gen_stim_output_templates_thin(params):
 
 #%%
 
-def f_gen_cont_seq(num_stim, num_trials, num_repeats = 1):
+def f_gen_cont_seq(num_stim, num_trials, batch_size = 1, num_samples = 1):
     
-    trials_out = np.ceil(np.random.random(num_trials*num_repeats)*num_stim).astype(int).reshape((num_trials, num_repeats))
+    trials_out = np.ceil(np.random.random(num_trials*batch_size*num_samples)*num_stim).astype(int).reshape((num_trials, batch_size, num_samples))
     
     return trials_out.squeeze()
 
-def f_gen_oddball_seq(oddball_stim, num_trials, dd_frac, num_repeats = 1):
+def f_gen_oddball_seq(oddball_stim, num_trials, dd_frac, batch_size = 1, num_samples = 1):
     
-    trials_oddball_freq = np.zeros((num_trials, num_repeats)).astype(int)
-    trials_oddball_ctx = np.zeros((num_trials, num_repeats)).astype(int)
+    trials_oddball_freq = np.zeros((num_trials, batch_size* num_samples)).astype(int)
+    trials_oddball_ctx = np.zeros((num_trials, batch_size* num_samples)).astype(int)
+    
+    
+    # set dd trials (coin flip)
+    idx_dd = np.less_equal(np.random.random((num_trials, batch_size * num_samples)), dd_frac)
 
-    for n_rep in range(num_repeats):
-            
+    for n_samp in range(num_samples*batch_size):
+
+        idx_dd2 = idx_dd[:, n_samp]
+        
         stim_rd = np.random.choice(oddball_stim, size=2, replace=False)
         
-        idx_dd = np.less_equal(np.random.random(num_trials), dd_frac)
-        trials_oddball_freq[idx_dd, n_rep] = stim_rd[1]
-        trials_oddball_freq[~idx_dd, n_rep] = stim_rd[0]
+        trials_oddball_freq[idx_dd2, n_samp] = stim_rd[1]
+        trials_oddball_freq[~idx_dd2, n_samp] = stim_rd[0]
         
-        trials_oddball_ctx[idx_dd, n_rep] = 2
-        trials_oddball_ctx[~idx_dd, n_rep] = 1
+        trials_oddball_ctx[idx_dd2, n_samp] = 2
+        trials_oddball_ctx[~idx_dd2, n_samp] = 1
+        
+    trials_oddball_freq2 = trials_oddball_freq.reshape((num_trials, batch_size, num_samples), order='F')
+    trials_oddball_ctx2 = trials_oddball_ctx.reshape((num_trials, batch_size, num_samples), order='F')
     
-    return trials_oddball_freq.squeeze(), trials_oddball_ctx.squeeze() 
+    return trials_oddball_freq2.squeeze(), trials_oddball_ctx2.squeeze() 
 
 #%%
 
@@ -163,32 +171,38 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     
     input_noise_std = params['input_noise_std']
     
-    input_size, trial_len, input_types = stim_templates.shape
+    #input_size = params['input_size']
+    #trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'])
+    #output_size = params['num_freq_stim'] + 1
     
-    output_size, _, output_types = output_templates.shape
+    input_size, trial_len, _ = stim_templates.shape
+    output_size, _, _ = output_templates.shape
     
     shape1 = input_trials.shape;
     num_trials = shape1[0]
-    if len(shape1) > 1:
-        num_repeats = shape1[1]
-    else:
-        num_repeats = 1
-        input_trials = input_trials.reshape((num_trials,1))
-
+    
     T = trial_len * num_trials
     
-    input_mat_all = np.zeros((input_size, T, num_repeats))
-    output_mat_all = np.zeros((output_size, T, num_repeats))
+    num_samp = 1
+    num_batch = 1;
+    if len(shape1) > 2:
+        num_batch = shape1[1]
+        num_samp = shape1[2]
+    elif len(shape1) > 1:
+        num_batch = shape1[1]
+
+    input_trials = input_trials.reshape((num_trials,num_batch, num_samp))
     
-    for n_rep in range(num_repeats):
-        input_mat = stim_templates[:,:,input_trials[:,n_rep]].reshape((input_size, T), order='F') + np.random.normal(0,input_noise_std,(input_size, T))
-        input_mat = input_mat - np.mean(input_mat)
-        input_mat/np.std(input_mat)
-        input_mat_all[:,:,n_rep] = input_mat
-        output_mat_all[:,:,n_rep] = output_templates[:,:,input_trials[:,n_rep]].reshape((output_size, T), order='F')
-        
+    input_shape = [input_size, T, num_batch, num_samp]
+    output_shape = [output_size, T, num_batch, num_samp]
     
-    return input_mat_all.squeeze(), output_mat_all.squeeze()
+    input_mat = stim_templates[:,:,input_trials].reshape(input_shape, order='F') + np.random.normal(0,input_noise_std, input_shape)
+    input_mat = input_mat - np.mean(input_mat)
+    input_mat/np.std(input_mat)
+    
+    output_mat = output_templates[:,:,input_trials].reshape(output_shape, order='F')
+    
+    return input_mat.squeeze(), output_mat.squeeze()
 
 #%%
 

@@ -46,32 +46,32 @@ plot_deets = 1
 
 #%% input params
 
-params = {'train_type':                     'oddball',     # standard, linear, oddball, freq_oddball
+params = {'train_type':                     'oddball2',     # standard, linear, oddball, freq_oddball
           
           'stim_duration':                  0.5,
           'isi_duration':                   0.5,
-          'dt':                             0.05,
-          
-          'num_trials_in_train_sample':     40,             # for linear 20000; for standard 20, for ~400 bins total
-          
-          'num_train_samples_freq':         500,            # 1 for linert; 10for standard many
-          'num_train_samples_ctx':          5000,
-          
-          'num_iterations_per_samp':        1,
-          'train_reinit_rate':              0,
-          
-          'num_trials_in_test_sample':      70,
-          
-          'input_size':                     50,
-          'hidden_size':                    250,            # number of RNN neurons
-          'g':                              5,  # 1            # recurrent connection strength 
-          'tau':                            0.5,
-          'learning_rate':                  0.005,           # 0.005
-          
           'num_freq_stim':                  10,
           'num_ctx':                        2,
           'oddball_stim':                   [3, 5],
           'dd_frac':                        0.1,
+          'dt':                             0.05,
+          
+          'train_batch_size':               2,
+          'train_trials_in_sample':         20,
+          'train_num_samples_freq':         500,
+          'train_num_samples_ctx':          1000,
+
+          'train_repeats_per_samp':         1,
+          'train_reinit_rate':              0,
+          
+          
+          'test_num_trials_in_sample':      70,
+          
+          'input_size':                     50,
+          'hidden_size':                    250,            # number of RNN neurons
+          'g':                              1,  # 1            # recurrent connection strength 
+          'tau':                            0.5,
+          'learning_rate':                  0.001,           # 0.005
           
           
           'stim_t_std':                     3,              # 3 or 0
@@ -83,7 +83,7 @@ params = {'train_type':                     'oddball',     # standard, linear, o
 
 now1 = datetime.now()
 
-name_tag = '%s_%dtrials_%dstim_std%.0f_%d_%d_%d_%dh_%dm' % (params['train_type'], params['num_trials_in_train_sample'],
+name_tag = '%s_%dtrials_%dstim_std%.0f_%d_%d_%d_%dh_%dm' % (params['train_type'], params['train_trials_in_sample'],
             params['num_freq_stim'], params['stim_t_std'], now1.year, now1.month, now1.day, now1.hour, now1.minute)
 
 #%%
@@ -102,41 +102,38 @@ fname_RNN_save = name_tag
 
 # generate stim templates
 
-stim_temp_all, out_temp_all = f_gen_stim_output_templates(params)
-
-out_temp_ctx_all = out_temp_all[:3,:,:3]
-
-stim_temp2, out_temp2 = f_gen_stim_output_templates_thin(params)
-
-
-oddball_stim = params['oddball_stim'].copy()
+stim_templates = {}
+stim_templates['freq_input'], stim_templates['freq_output'] = f_gen_stim_output_templates(params)
+stim_templates['ctx_output'] = stim_templates['freq_output'][:3,:,:3]
 
 
 # train control trials 
-trials_train_cont = f_gen_cont_seq(params['num_freq_stim'], params['num_trials_in_train_sample'], params['num_train_samples_freq'])
+trials_train_cont = f_gen_cont_seq(params['num_freq_stim'], params['train_trials_in_sample'], params['train_batch_size'], params['train_num_samples_freq'])
+input_train_cont, output_train_cont = f_gen_input_output_from_seq(trials_train_cont, stim_templates['freq_input'], stim_templates['freq_output'], params)
 
-input_train_cont, output_train_cont = f_gen_input_output_from_seq(trials_train_cont, stim_temp_all, out_temp_all, params)
+
+trials_train_cont2 = f_gen_cont_seq(params['num_freq_stim'], params['train_trials_in_sample'], params['train_batch_size'], 1)
+input_train_cont2, output_train_cont2 = f_gen_input_output_from_seq(trials_train_cont2, stim_templates['freq_input'], stim_templates['freq_output'], params)
 
 
 # train oddball trials 
-trials_train_oddball_freq, trials_train_oddball_ctx = f_gen_oddball_seq(oddball_stim, params['num_trials_in_train_sample'], params['dd_frac'], params['num_train_samples_ctx'])
+trials_train_oddball_freq, trials_train_oddball_ctx = f_gen_oddball_seq(params['oddball_stim'], params['train_trials_in_sample'], params['dd_frac'], params['train_batch_size'], params['train_num_samples_ctx'])
 
-input_train_oddball, output_train_oddball_freq = f_gen_input_output_from_seq(trials_train_oddball_freq, stim_temp_all, out_temp_all, params)
-_, output_train_oddball_ctx = f_gen_input_output_from_seq(trials_train_oddball_ctx, stim_temp_all, out_temp_ctx_all, params)
+input_train_oddball, output_train_oddball_freq = f_gen_input_output_from_seq(trials_train_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
+_, output_train_oddball_ctx = f_gen_input_output_from_seq(trials_train_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
 
 
 # test control trials
-trials_test_cont = f_gen_cont_seq(params['num_freq_stim'], params['num_trials_in_test_sample'], 1)
-
-input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_temp_all, out_temp_all, params)
+trials_test_cont = f_gen_cont_seq(params['num_freq_stim'], params['test_num_trials_in_sample'], 1, 1)
+input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_templates['freq_input'], stim_templates['freq_output'], params)
 
 
 # test oddball trials
 num_repeats = 10
-trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq(oddball_stim, params['num_trials_in_test_sample'], params['dd_frac'], num_repeats)
+trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq(params['oddball_stim'], params['test_num_trials_in_sample'], params['dd_frac'], 1, num_repeats)
 
-input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_temp_all, out_temp_all, params)
-_, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_temp_all, out_temp_ctx_all, params)
+input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
+_, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
 
 shape1 = input_test_oddball.shape
 input_test_oddball2 = np.reshape(input_test_oddball, (shape1[0], shape1[1]*shape1[2]), order='F')
@@ -169,7 +166,7 @@ if params['plot_deets']:
     plt.figure()
     ax1 = plt.subplot(spec2[0])
     ax1.imshow(input_plot, aspect="auto")
-    plt.title('inputs; %d stim; %d intups; std=%.1f' % (num_stim, params['input_size'], params['stim_t_std']))
+    plt.title('inputs; %d stim; %d intups; std=%.1f' % (params['num_freq_stim'], params['input_size'], params['stim_t_std']))
     plt.subplot(spec2[1], sharex=ax1)
     plt.imshow(output_plot, aspect="auto")
     plt.title('outputs')
@@ -193,7 +190,7 @@ rnn.init_weights(params['g'])
 #%%
 #loss = nn.NLLLoss()
 loss = nn.CrossEntropyLoss()
-loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor([0.00000000001, 0.1, 0.9]))
+loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor([0.1, 0.1, 0.9]))  #1e-10
 
 #%%
 if load_RNN:
@@ -211,6 +208,10 @@ if train_RNN:
         
         #train_cont = f_RNN_trial_ctx_train(rnn, loss, input_train_oddball_freq, output_train_oddball_freq, output_train_oddball_ctx, params)
     
+    elif params['train_type'] == 'oddball2':
+        train_cont = f_RNN_trial_ctx_train2(rnn, loss_ctx, stim_templates, params)
+        
+    
     else:
         train_cont = f_RNN_linear_train(rnn, loss, input_train_cont, output_train_cont, params)
         
@@ -218,7 +219,30 @@ else:
     print('running without training')
     train_cont = f_RNN_test(rnn, loss, input_train_cont, output_train_cont, params)
     
-    
+
+#%%
+
+#plt.close('all')
+
+sm_bin = 50#round(1/params['dt'])*50;
+trial_len = out_temp_all.shape[1]
+kernel = np.ones(sm_bin)/sm_bin
+
+loss_train = train_cont['loss'].T.flatten()
+loss_train_cont_sm = np.convolve(loss_train, kernel, mode='valid')
+loss_x_sm = np.arange(len(loss_train_cont_sm))+sm_bin/2 #/(trial_len)
+loss_x_raw = np.arange(len(loss_train)) #/(trial_len)
+
+
+plt.figure()
+plt.semilogy(loss_x_raw, loss_train)
+plt.semilogy(loss_x_sm, loss_train_cont_sm)
+plt.legend(('train', 'train smoothed'))
+plt.xlabel('iterations')
+plt.ylabel('loss')
+plt.title(fname_RNN_save)
+
+
 # f_plot_rates(rates_all[:,:, 1], 10)
  #%%
 if save_RNN and train_RNN:
