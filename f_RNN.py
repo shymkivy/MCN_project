@@ -12,7 +12,7 @@ import time
 
 import matplotlib.pyplot as plt
 
-from f_RNN_utils import f_gen_oddball_seq, f_gen_input_output_from_seq
+from f_RNN_utils import f_gen_oddball_seq, f_gen_input_output_from_seq, f_gen_cont_seq
 
 #%%
 
@@ -322,16 +322,17 @@ def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train_ctx, params):
 
 #%%
 
-def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params):
+def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
     
     hidden_size = params['hidden_size'];     
-    num_stim = params['num_freq_stim'] + 1
     output_size = params['num_ctx'] + 1
     reinit_rate = params['train_reinit_rate']
     num_rep = params['train_repeats_per_samp']
     learning_rate = params['learning_rate']
     
     input_size = params['input_size']
+    
+    loss_strat = 1
     
     T = round((params['stim_duration'] + params['isi_duration'])/params['dt'] * params['train_trials_in_sample'])
     num_samp = params['train_num_samples_ctx']
@@ -342,22 +343,10 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params):
     optimizer = torch.optim.AdamW(rnn.parameters(), lr=learning_rate) 
 
     # initialize 
-    
-    #input_train, output_train_ctx
-    #input_size, T, num_bouts = input_train.shape
-
-    
-    #outputs_all = torch.zeros((output_size, T, num_rep, num_samp))
-    #rates_all = torch.zeros((hidden_size, T, num_rep, num_samp))
-    
-    rates_all = np.zeros((hidden_size, T, num_rep, num_samp));
-    outputs_all = np.zeros((output_size, T, num_rep, num_samp));
-    loss_all = np.zeros((num_rep, num_samp));
-    loss_all_T = np.zeros((T, num_rep, num_samp));
-
-    # can adjust bias here 
-    #rnn.h2h.bias.data  = rnn.h2h.bias.data -2
-    #np.std(np.asarray(rnn.h2h.weight ).flatten())
+    #rnn_out['loss'] = np.zeros((num_samp, num_rep))
+    rnn_out['loss'] = []
+    #rnn_out['rates'] = np.zeros((hidden_size, T, num_rep, num_samp))
+    #rnn_out['outputs'] = np.zeros((output_size, T, num_rep, num_samp))
 
     print('Starting ctx trial training')
     
@@ -383,11 +372,32 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params):
             
             output_ctx, rate = rnn.forward_ctx(input_sig, rate_start)
             
-            target2_ctx = torch.argmax(target_ctx[:,:, n_samp], dim =0) * torch.ones(T)
+            target_ctx2 = (torch.argmax(target_ctx, dim =2) * torch.ones(T, batch_size)).long()
             
-            output_sm = output_ctx
             
-            loss2 = loss(output_ctx.T, target2_ctx.long())
+            if loss_strat == 1:
+                output_ctx3 = output_ctx.permute((1, 2, 0))
+                target_ctx3 = target_ctx2.permute((1, 0))
+                
+                loss2 = loss(output_ctx3, target_ctx3)
+            
+            elif loss_strat == 2:
+                # probably equivalent to first
+                target_ctx3 = target_ctx2.reshape((T*batch_size))
+                output_ctx3 = output_ctx.reshape((T*batch_size, output_size))
+                #output_ctx2 = output_ctx.permute((1, 2, 0))
+    
+                loss2 = loss(output_ctx3, target_ctx3)
+            else:
+                # computes separately and sums after
+                loss4 = []
+                for n_bt in range(batch_size):
+                    target_ctx3 = target_ctx2[:,n_bt]
+                    output_ctx3 = output_ctx[:,n_bt,:]
+                    loss3 = loss(output_ctx3, target_ctx3)
+                    loss4.append(loss3)
+                
+                loss2 = sum(loss4)/batch_size
             
             # for nnnlosss
             #output_sm = rnn.softmax(output)        
@@ -395,60 +405,204 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params):
             
             loss2.backward() # retain_graph=True
             optimizer.step()
+
+            #rnn_out['loss'][n_samp, n_rep] = loss2.item()
+            rnn_out['loss'].append(loss2.item())
             
-            rates_all[:,:, n_rep, n_samp] = rate.detach().numpy()
-            outputs_all[:,:, n_rep, n_samp] = output_sm.detach().numpy()
+            rnn_out['rates'] = rate.detach().numpy()
+            rnn_out['input'] = input_sig.detach().numpy()
+            rnn_out['output'] = output_ctx.detach().numpy()
+            rnn_out['target'] = target_ctx.detach().numpy()
+            rnn_out['target_idx'] = target_ctx2.detach().numpy()
             
-            loss_all[n_rep, n_samp] = loss2.item()
-            
-            for n_t in range(T):
-                loss_all_T[n_t, n_rep, n_samp] = loss(output_sm[:,n_t], target2_ctx[n_t].long()).item()
-            
-            if reinit_rate:
-                rate_start = rnn.init_rate()
+            if num_rep>1:
+                if reinit_rate:
+                    rate_start = rnn.init_rate()
+                else:
+                    rate_start = rate[:,-1].detach()
+                    
+                # Compute the running loss every 10 steps
+                if ((n_rep) % 10) == 0:
+                    print('sample %d, rep %d, Loss %0.3f, Time %0.1fs' % (n_samp, n_rep, loss2.item(), time.time() - start_time))
             else:
-                rate_start = rate[:,-1].detach()
-
-            # Compute the running loss every 10 steps
-            if ((n_rep) % 10) == 0:
-                print('bout %d, Step %d, Loss %0.3f, Time %0.1fs' % (n_samp, n_rep, loss2.item(), time.time() - start_time))
-
+                # Compute the running loss every 10 steps
+                if ((n_rep) % 10) == 0:
+                    print('sample %d, Loss %0.3f, Time %0.1fs' % (n_samp, loss2.item(), time.time() - start_time))
 
     print('Done')
     
     if params['plot_deets']:
+        
         plt.figure()
-        plt.plot(np.std(input_train, axis=0))
+        plt.plot(np.std(rnn_out['input'], axis=2))
         plt.title('std of inputs vs time')
 
-        f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'initial ')
-    
-    if 1: # params['plot_deets']
+        # f_plot_rnn_params(rnn, rnn_out['rates'], rnn_out['input'], text_tag = 'initial ')
+        # f_plot_rnn_params(rnn, rnn_out['rates'], rnn_out['input'], text_tag = 'final ')
+        
+        
+    if params['plot_deets']:
+
         plots1 = 4;
         plt.figure()
         for n1 in range(plots1):
-            idx1 = np.random.choice(num_samp)
+            idx1 = np.random.choice(batch_size)
             plt.subplot(plots1*2, 1, (n1+1)*2-1)
-            plt.imshow(input_train[:,:,idx1], aspect="auto")
+            plt.imshow(rnn_out['input'][:,idx1,:].T, aspect="auto")
             plt.title('run %d' % idx1)
             plt.ylabel('input')
             plt.subplot(plots1*2, 1, (n1+1)*2)
-            plt.imshow(output_train_ctx[:,:,idx1], aspect="auto")
+            plt.imshow(rnn_out['output'][:,idx1,:].T, aspect="auto")
             plt.ylabel('target')
         plt.show()
     
     if params['plot_deets']:
-        f_plot_rnn_params(rnn, rate, input_sig, text_tag = 'final ')
         
         plt.figure()
-        plt.plot(loss_all)
-        plt.title('bouts loss')
+        plt.plot(rnn_out['loss'])
+        plt.title('loss')
     
-    rnn_out = {'rates':         rates_all,
-               'outputs':       outputs_all,
-               'loss':          loss_all,
-               'lossT':         loss_all_T,
-               }
+    return rnn_out   
+
+#%%
+
+def f_RNN_trial_freq_train2(rnn, loss, stim_templates, params, rnn_out = {}):
+    
+    hidden_size = params['hidden_size'];     
+    output_size = params['num_freq_stim'] + 1
+    reinit_rate = params['train_reinit_rate']
+    num_rep = params['train_repeats_per_samp']
+    learning_rate = params['learning_rate']
+    
+    input_size = params['input_size']
+    
+    loss_strat = 1
+    
+    T = round((params['stim_duration'] + params['isi_duration'])/params['dt'] * params['train_trials_in_sample'])
+    num_samp = params['train_num_samples_freq']
+    batch_size = params['train_batch_size']
+    
+    
+    #optimizer = torch.optim.SGD(rnn.parameters(), lr=learning_rate) 
+    optimizer = torch.optim.AdamW(rnn.parameters(), lr=learning_rate) 
+
+    # initialize 
+    #rnn_out['loss'] = np.zeros((num_samp, num_rep))
+    rnn_out['loss'] = []
+    #rnn_out['rates'] = np.zeros((hidden_size, T, num_rep, num_samp))
+    #rnn_out['outputs'] = np.zeros((output_size, T, num_rep, num_samp))
+
+    print('Starting freq trial training')
+    
+    start_time = time.time()
+    
+    for n_samp in range(num_samp):
+         
+        rate_start = rnn.init_rate(params['train_batch_size'])
+        
+        # get sample
+        trials_test_cont = f_gen_cont_seq(params['num_freq_stim'], params['train_trials_in_sample'], params['train_batch_size'], 1)
+        input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_templates['freq_input'], stim_templates['freq_output'], params)
+
+        input_sig = torch.tensor(input_test_cont).float()
+        target = torch.tensor(output_test_cont).float()
+        
+        for n_rep in range(num_rep):
+            
+            optimizer.zero_grad()
+            
+            output, rate = rnn.forward_freq(input_sig, rate_start)
+            
+            target2 = (torch.argmax(target, dim =2) * torch.ones(T, batch_size)).long()
+            
+            
+            if loss_strat == 1:
+                output3 = output.permute((1, 2, 0))
+                target3 = target2.permute((1, 0))
+                
+                loss2 = loss(output3, target3)
+            
+            elif loss_strat == 2:
+                # probably equivalent to first
+                target3 = target2.reshape((T*batch_size))
+                output3 = output.reshape((T*batch_size, output_size))
+                #output_ctx2 = output_ctx.permute((1, 2, 0))
+    
+                loss2 = loss(output3, target3)
+            else:
+                # computes separately and sums after
+                loss4 = []
+                for n_bt in range(batch_size):
+                    target3 = target2[:,n_bt]
+                    output3 = output[:,n_bt,:]
+                    loss3 = loss(output3, target3)
+                    loss4.append(loss3)
+                
+                loss2 = sum(loss4)/batch_size
+            
+            # for nnnlosss
+            #output_sm = rnn.softmax(output)        
+            #loss2 = loss(output_sm.T, target2.long())
+            
+            loss2.backward() # retain_graph=True
+            optimizer.step()
+
+            #rnn_out['loss'][n_samp, n_rep] = loss2.item()
+            rnn_out['loss'].append(loss2.item())
+            
+            rnn_out['rates'] = rate.detach().numpy()
+            rnn_out['input'] = input_sig.detach().numpy()
+            rnn_out['output'] = output.detach().numpy()
+            rnn_out['target'] = target.detach().numpy()
+            rnn_out['target_idx'] = target2.detach().numpy()
+            
+            if num_rep>1:
+                if reinit_rate:
+                    rate_start = rnn.init_rate()
+                else:
+                    rate_start = rate[:,-1].detach()
+                    
+                # Compute the running loss every 10 steps
+                if ((n_rep) % 10) == 0:
+                    print('sample %d, rep %d, Loss %0.3f, Time %0.1fs' % (n_samp, n_rep, loss2.item(), time.time() - start_time))
+            else:
+                # Compute the running loss every 10 steps
+                if ((n_rep) % 10) == 0:
+                    print('sample %d, Loss %0.3f, Time %0.1fs' % (n_samp, loss2.item(), time.time() - start_time))
+
+    print('Done')
+    
+    if params['plot_deets']:
+        
+        plt.figure()
+        plt.plot(np.std(rnn_out['input'], axis=2))
+        plt.title('std of inputs vs time')
+
+        # f_plot_rnn_params(rnn, rnn_out['rates'], rnn_out['input'], text_tag = 'initial ')
+        # f_plot_rnn_params(rnn, rnn_out['rates'], rnn_out['input'], text_tag = 'final ')
+        
+        
+    if params['plot_deets']:
+
+        plots1 = 4;
+        plt.figure()
+        for n1 in range(plots1):
+            idx1 = np.random.choice(batch_size)
+            plt.subplot(plots1*2, 1, (n1+1)*2-1)
+            plt.imshow(rnn_out['input'][:,idx1,:].T, aspect="auto")
+            plt.title('run %d' % idx1)
+            plt.ylabel('input')
+            plt.subplot(plots1*2, 1, (n1+1)*2)
+            plt.imshow(rnn_out['output'][:,idx1,:].T, aspect="auto")
+            plt.ylabel('target')
+        plt.show()
+    
+    if params['plot_deets']:
+        
+        plt.figure()
+        plt.plot(rnn_out['loss'])
+        plt.title('loss')
+    
     return rnn_out   
 
 #%%
@@ -457,6 +611,7 @@ def f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train, output_train, o
     
     hidden_size = params['hidden_size'];     
     output_size = params['num_freq_stim'] + 1
+    output_size_ctx = params['num_ctx'] + 1
     reinit_rate = params['train_reinit_rate']
     num_it = params['train_repeats_per_samp']
     learning_rate = params['learning_rate']
@@ -555,7 +710,7 @@ def f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train, output_train, o
         plt.title('bouts loss')
     
     rnn_out = {'rates':         rates_all,
-               'outputs':       outputs_all,
+               'output':       outputs_all,
                'loss':          loss_all,
                'lossT':         loss_all_T,
                }
@@ -564,113 +719,78 @@ def f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train, output_train, o
 def f_RNN_test(rnn, loss, input_test, output_test, params):
     hidden_size = params['hidden_size'];  
     
-    T = input_test.shape[1]
-    output_size = output_test.shape[0]
+    T, batch_size, input_size = input_test.shape
+    output_size = output_test.shape[2]
     
-    input_sig_test = torch.tensor(input_test).float()
-    target_test = torch.tensor(output_test).float()
+    input1 = torch.tensor(input_test).float()
+    target = torch.tensor(output_test).float()
     
-    rate_test = rnn.init_rate();
-    
-    rates_all_test = np.zeros((hidden_size, T))
-    outputs_all_test = np.zeros((output_size, T));
-    loss_all_test = np.zeros((T));
+    rate_start = rnn.init_rate(batch_size)
 
+    output, rates = rnn.forward_freq(input1, rate_start)
+
+    output3 = output.permute((1, 2, 0))
+    target2 = (torch.argmax(target, dim =2) * torch.ones(T, batch_size)).long()
+    target3 = target2.permute((1, 0))
+    loss2 = loss(output3, target3)
+    
+    lossT = np.zeros((T, batch_size))
     for n_t in range(T):
-        
-        output, rate_new = rnn.forward_linear(input_sig_test[:,n_t], rate_test)
-        
-        target2 = torch.argmax(target_test[:,n_t])# * torch.ones(1) # torch.tensor()
-        
-        # crossentropy
-        loss2 = loss(output, target2.long())
-        output_sm = output
-        
-        # nnnloss
-        #output_sm = rnn.softmax(output)
-        #loss2 = loss(output_sm, target2.long())
-        
-        
-        rates_all_test[:,n_t] = rate_new.detach().numpy();
-        
-        rate_test = rate_new.detach();
+        for n_bt2 in range(batch_size):
+            lossT[n_t, n_bt2] = loss(output[n_t, n_bt2, :], target2[n_t, n_bt2]).item()
 
-        outputs_all_test[:,n_t] = output_sm.detach().numpy();
-        
-        
-        
-          
-        loss_all_test[n_t] = loss2.item()
-        
+    
+    rnn_out = {'rates':         rates.detach().numpy(),
+               'input':         input1.detach().numpy(),
+               'target':        target.detach().numpy(),
+               'target_idx':    target2.detach().numpy(),
+               
+               'output':        output.detach().numpy(),
+               'loss':          loss2.item(),
+               'lossT':         lossT
+               }
+    
     print('done')
     
-    rnn_out = {'rates':         rates_all_test,
-               'outputs':       outputs_all_test,
-               'loss':          loss_all_test,
-               }
     return rnn_out
 
 #%%
 
-def f_RNN_test_ctx(rnn, loss, loss_ctx, input_test, output_test, output_test_ctx, params):
+def f_RNN_test_ctx(rnn, loss, input_test, output_test, params):
     hidden_size = params['hidden_size'];  
     
-    T = input_test.shape[1]
-    output_size = output_test.shape[0]
-    output_size_ctx = output_test_ctx.shape[0]
-    
-    input_sig_test = torch.tensor(input_test).float()
-    target_test = torch.tensor(output_test).float()
-    target_test_ctx = torch.tensor(output_test_ctx).float()
-    
-    rate_test = rnn.init_rate();
-    
-    rates_all_test = np.zeros((hidden_size, T))
-    outputs_all_test = np.zeros((output_size, T));
-    outputs_all_test_ctx = np.zeros((output_size_ctx, T));
-    loss_all_test = np.zeros((T));
-    loss_all_test_ctx = np.zeros((T));
-    
-    for n_t in range(T):
-        
-        output, output_ctx, rate_new = rnn.forward_linear_ctx(input_sig_test[:,n_t], rate_test)
-        
-        target2 = torch.argmax(target_test[:,n_t])# * torch.ones(1) # torch.tensor()
-        
-        # crossentropy
-        loss2 = loss(output, target2.long())
-        output_sm = output
-        
-        
-        target2_ctx = torch.argmax(target_test_ctx[:,n_t])
-        
-        loss2_ctx = loss_ctx(output_ctx, target2_ctx.long())
-        output_ctx_sm = output_ctx
-        
-        # nnnloss
-        #output_sm = rnn.softmax(output)
-        #loss2 = loss(output_sm, target2.long())
-        
-        
-        rates_all_test[:,n_t] = rate_new.detach().numpy();
-        
-        rate_test = rate_new.detach();
+    T, batch_size, input_size = input_test.shape
+    output_size = output_test.shape[2]
 
-        outputs_all_test[:,n_t] = output_sm.detach().numpy();
-        
-        outputs_all_test_ctx[:,n_t] = output_ctx_sm.detach().numpy();
-        
-        loss_all_test[n_t] = loss2.item()
-        loss_all_test_ctx[n_t] = loss2_ctx.item()
-        
-    print('done')
+    input1 = torch.tensor(input_test).float()
+    target = torch.tensor(output_test).float()
+
+    rate_start = rnn.init_rate(batch_size)
     
-    rnn_out = {'rates':         rates_all_test,
-               'outputs':       outputs_all_test,
-               'loss':          loss_all_test,
-               'outputs_ctx':   outputs_all_test_ctx,
-               'loss_ctx':      loss_all_test_ctx,
+    output, rates = rnn.forward_ctx(input1, rate_start)
+    
+    output3 = output.permute((1, 2, 0))
+    target2 = (torch.argmax(target, dim =2) * torch.ones(T, batch_size)).long()
+    target3 = target2.permute((1, 0))
+    loss2 = loss(output3, target3)
+    
+    lossT = np.zeros((T, batch_size))
+    for n_t in range(T):
+        for n_bt2 in range(batch_size):
+            lossT[n_t, n_bt2] = loss(output[n_t, n_bt2, :], target2[n_t, n_bt2]).item()
+
+    rnn_out = {'rates':         rates.detach().numpy(),
+               'input':         input1.detach().numpy(),
+               'target':        target.detach().numpy(),
+               'target_idx':    target2.detach().numpy(),
+               
+               'output':        output.detach().numpy(),
+               'loss':          loss2.item(),
+               'lossT':         lossT,
                }
+
+
+    print('done')
     
     return rnn_out
 

@@ -95,6 +95,67 @@ def f_plot_rates(rnn_data, input_sig, target, title_tag):
 
 #%%
 
+def f_plot_rates2(rnn_data, title_tag, num_plot_batches = 1, num_plot_cells = 10):
+    
+    rates = rnn_data['rates']
+    input_sig = rnn_data['input']
+    output = rnn_data['output']
+    target = rnn_data['target']
+    
+    T, batch_size, num_cells = rates.shape
+    
+    num_plot_batches2 = min(num_plot_batches, batch_size)
+    
+    if 'lossT' in rnn_data.keys():
+        lossT = rnn_data['lossT']
+        num_sp = 6
+        height_ratios1 = [4, 1, 2, 2, 2, 1]
+    else:
+        num_sp = 5
+        height_ratios1 = [4, 1, 2, 2, 2]
+    
+    
+    spec = gridspec.GridSpec(ncols=1, nrows=num_sp, height_ratios=height_ratios1)
+    
+    plot_batches = np.sort(sample(range(batch_size), num_plot_batches2))
+    
+    for n_bt in range(num_plot_batches2):
+        bt = plot_batches[n_bt]
+        
+        plot_cells = np.sort(sample(range(num_cells), num_plot_cells))
+        
+        plt.figure()
+        ax1 = plt.subplot(spec[0])
+        for n_plt in range(num_plot_cells):  
+            shift = n_plt*2.5    
+            ax1.plot(rates[:,bt,plot_cells[n_plt]]+shift)
+        plt.title('%s; batch %d; example cells' % (title_tag, bt))
+        plt.axis('off')
+       # plt.xticks([])
+        plt.subplot(spec[1], sharex=ax1)
+        plt.plot(np.mean(rates[:,bt,:], axis=1))
+        plt.title('population average')
+        plt.axis('off')
+        plt.subplot(spec[2], sharex=ax1)
+        plt.imshow(input_sig[:,bt,:].T, aspect="auto") #   , aspect=10
+        plt.title('inputs')
+        plt.axis('off')
+        plt.subplot(spec[3], sharex=ax1)
+        plt.imshow(target[:,bt,:].T, aspect="auto") # , aspect=100
+        plt.title('target')
+        plt.axis('off')
+        plt.subplot(spec[4], sharex=ax1)
+        plt.imshow(output[:,bt,:].T, aspect="auto") # , aspect=100
+        plt.title('outputs')
+        plt.axis('off')
+        if 'lossT' in rnn_data.keys():
+            plt.subplot(spec[5], sharex=ax1)
+            plt.plot(lossT[:,bt]) # , aspect=100
+            plt.title('loss')
+            plt.axis('off')
+
+#%%
+
 def f_plot_rates_ctx(rnn_data, input_sig, target, title_tag):
     
     rates_all = rnn_data['rates']

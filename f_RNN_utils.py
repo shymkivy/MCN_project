@@ -137,7 +137,10 @@ def f_gen_cont_seq(num_stim, num_trials, batch_size = 1, num_samples = 1):
     
     trials_out = np.ceil(np.random.random(num_trials*batch_size*num_samples)*num_stim).astype(int).reshape((num_trials, batch_size, num_samples))
     
-    return trials_out.squeeze()
+    if num_samples == 1:
+        trials_out = trials_out[:,:,0]
+    
+    return trials_out
 
 def f_gen_oddball_seq(oddball_stim, num_trials, dd_frac, batch_size = 1, num_samples = 1):
     
@@ -163,11 +166,16 @@ def f_gen_oddball_seq(oddball_stim, num_trials, dd_frac, batch_size = 1, num_sam
     trials_oddball_freq2 = trials_oddball_freq.reshape((num_trials, batch_size, num_samples), order='F')
     trials_oddball_ctx2 = trials_oddball_ctx.reshape((num_trials, batch_size, num_samples), order='F')
     
-    return trials_oddball_freq2.squeeze(), trials_oddball_ctx2.squeeze() 
+    if num_samples == 1:
+        trials_oddball_freq2 = trials_oddball_freq2[:,:,0]
+        trials_oddball_ctx2 = trials_oddball_ctx2[:,:,0]
+        
+    return trials_oddball_freq2, trials_oddball_ctx2
 
 #%%
 
 def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, params):
+    #  output (T seq_len, batch_size, input_size/output_size, num_samples)
     
     input_noise_std = params['input_noise_std']
     
@@ -184,29 +192,35 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     T = trial_len * num_trials
     
     num_samp = 1
-    num_batch = 1;
+    batch_size = 1;
     if len(shape1) > 2:
-        num_batch = shape1[1]
+        batch_size = shape1[1]
         num_samp = shape1[2]
     elif len(shape1) > 1:
-        num_batch = shape1[1]
+        batch_size = shape1[1]
 
-    input_trials = input_trials.reshape((num_trials,num_batch, num_samp))
+    input_trials = input_trials.reshape((num_trials, batch_size, num_samp))
     
-    input_shape = [input_size, T, num_batch, num_samp]
-    output_shape = [output_size, T, num_batch, num_samp]
+    input_shape = [input_size, T, batch_size, num_samp]
+    output_shape = [output_size, T, batch_size, num_samp]
     
     input_mat = stim_templates[:,:,input_trials].reshape(input_shape, order='F') + np.random.normal(0,input_noise_std, input_shape)
     input_mat = input_mat - np.mean(input_mat)
     input_mat/np.std(input_mat)
+    input_mat_out = input_mat.transpose([1,2, 0, 3])
     
     output_mat = output_templates[:,:,input_trials].reshape(output_shape, order='F')
+    output_mat_out = output_mat.transpose([1,2, 0, 3])
     
-    return input_mat.squeeze(), output_mat.squeeze()
-
+    if num_samp == 1:
+        input_mat_out = input_mat_out[:,:,:,0]
+        output_mat_out = output_mat_out[:,:,:,0]
+        
+    return input_mat_out, output_mat_out
+    
 #%%
 
-def f_plot_rates2(rates, num_cells_plot = 999999):
+def f_plot_rates3(rates, num_cells_plot = 999999):
     
     spacing = np.ceil(np.max(rates) - np.min(rates))  
     num_cells = rates.shape[0]
