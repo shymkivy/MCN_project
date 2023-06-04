@@ -39,14 +39,14 @@ from datetime import datetime
 
 #%% params
 compute_loss = 1
-train_RNN = 1
-save_RNN = 1
-load_RNN = 0
+train_RNN = 0
+save_RNN = 0
+load_RNN = 1
 plot_deets = 1
 
 #%% input params
 
-params = {'train_type':                     'oddball2',     #   oddball2, freq2  standard, linear, oddball, freq_oddball,
+params = {'train_type':                     'freq2',     #   oddball2, freq2  standard, linear, oddball, freq_oddball,
           
           'stim_duration':                  0.5,
           'isi_duration':                   0.5,
@@ -58,8 +58,8 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           
           'train_batch_size':               64,
           'train_trials_in_sample':         20,
-          'train_num_samples_freq':         5000,
-          'train_num_samples_ctx':          20000,
+          'train_num_samples_freq':         1000,
+          'train_num_samples_ctx':          5000,
 
           'train_repeats_per_samp':         1,
           'train_reinit_rate':              0,
@@ -354,35 +354,39 @@ f_plot_rates_ctx(test_oddball_ctx, input_test_oddball2, output_test_oddball_ctx2
 
 #%% analyze tuning 
 
+
 plt.close('all')
 
 
-trial_len = out_temp_all.shape[1]
-output_calc = output_test_cont
-rates_calc = test_cont['rates']
 
+trial_len = stim_templates['freq_input'].shape[1]
+
+
+test_data = test_cont_freq
+
+
+output_calc = test_data['target']
+rates_calc = test_data['rates']
 num_cells = params['hidden_size'];
 
 trial_ave_win = [-5,15]
 
 num_t = trial_ave_win[1] - trial_ave_win[0]
 
-stim_times = np.diff(output_calc[1,:], prepend=0)
-on_times = np.where(np.greater(stim_times, 0))[0]
+stim_times = np.diff(output_calc[:,0,:], axis=0, prepend=0)
+stim_times2 = np.greater(stim_times, 0)
+num_stim = stim_times2.shape[1]
+
 
 colors1 = plt.cm.jet(np.linspace(0, 1, num_stim))
-
 plot_t = np.asarray(range(trial_ave_win[0], trial_ave_win[1]))
 
 on_times_all = []
 num_trials_all = np.zeros((num_stim), dtype=int)
-for n_stim in range(num_stim):
-    stim_times = np.diff(output_calc[n_stim+1,:], prepend=0)
-    on_times_trace = np.greater(stim_times, 0)
-    on_times = np.where(on_times_trace)[0]
-    
+for n_st in range(num_stim):
+    on_times = np.where(stim_times2[:,n_st])[0]
     on_times_all.append(on_times)
-    num_trials_all[n_stim] = len(on_times)
+    num_trials_all[n_st] = len(on_times)
 
 
 trial_all = []
@@ -428,6 +432,19 @@ for n_st in range(num_stim):
     plt.plot(x_lab, pop_ave)
 
 
+
+plt.figure()
+plt.plot(stim_times[:,0:2])
+
+plt.figure()
+plt.imshow(output_calc[:,0,:], aspect='auto')
+
+plt.figure()
+plt.plot(output_calc[:,0,1])
+
+plt.figure()
+plt.plot(output_calc[:,0,1])
+plt.plot(stim_times2[:,1])
 
 #%%
 pca = PCA();
