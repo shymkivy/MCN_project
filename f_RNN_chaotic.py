@@ -13,7 +13,7 @@ import torch.nn as nn
 #%%
 
 class RNN_chaotic(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size_freq, output_size_ctx, alpha):
+    def __init__(self, input_size, hidden_size, output_size_freq, output_size_ctx, alpha, activation='tanh'):
         super(RNN_chaotic, self).__init__()
         
         self.hidden_size = hidden_size
@@ -27,7 +27,10 @@ class RNN_chaotic(nn.Module):
         if output_size_ctx:
             self.h2o_ctx = nn.Linear(hidden_size, output_size_ctx)
         self.softmax = nn.LogSoftmax(dim=0)
-        self.tanh = nn.Tanh()
+        if activation == 'tanh':
+            self.activ = nn.Tanh()
+        elif activation == 'ReLU':
+            self.activ = nn.ReLU()
         #self.sigmoid = nn.Sigmoid()
         
     def init_weights(self, g):
@@ -60,7 +63,7 @@ class RNN_chaotic(nn.Module):
         
     def recurrence(self, input_sig, rate):
         # can try relu here
-        rate_new = self.tanh(self.i2h(input_sig) + self.h2h(rate))
+        rate_new = self.activ(self.i2h(input_sig) + self.h2h(rate))
         rate_new = (1-self.alpha)*rate + self.alpha*rate_new
         
         return rate_new

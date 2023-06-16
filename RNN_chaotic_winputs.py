@@ -39,9 +39,9 @@ from datetime import datetime
 
 #%% params
 compute_loss = 1
-train_RNN = 0
+train_RNN = 1
 save_RNN = 0
-load_RNN = 1
+load_RNN = 0
 plot_deets = 1
 
 #%% input params
@@ -73,6 +73,7 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'g':                              1,  # 1            # recurrent connection strength 
           'tau':                            0.5,
           'learning_rate':                  0.001,           # 0.005
+          'activation':                     'ReLU',
           
           
           'stim_t_std':                     3,              # 3 or 0
@@ -84,8 +85,8 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
 
 now1 = datetime.now()
 
-name_tag = '%s_%dtrain_samp_%dtrials_%dstim_%dbatch_%.4flr_%d_%d_%d_%dh_%dm' % (params['train_type'], 
-            params['train_num_samples_ctx'], params['train_trials_in_sample'], params['num_freq_stim'], 
+name_tag = '%s_%dtrain_samp_%s_%dtrials_%dstim_%dbatch_%.4flr_%d_%d_%d_%dh_%dm' % (params['train_type'], 
+            params['train_num_samples_ctx'], params['activation'], params['train_trials_in_sample'], params['num_freq_stim'], 
             params['train_batch_size'], params['learning_rate'],
             now1.year, now1.month, now1.day, now1.hour, now1.minute)
 
@@ -136,7 +137,7 @@ output_size_ctx = params['num_ctx'] + 1
 hidden_size = params['hidden_size'];
 alpha = params['dt']/params['tau'];         
 
-rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha)
+rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, activation=params['activation'])
 rnn.init_weights(params['g'])
 
 #%%
