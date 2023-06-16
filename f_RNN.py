@@ -717,6 +717,7 @@ def f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train, output_train, o
     return rnn_out   
 #%%
 def f_RNN_test(rnn, loss, input_test, output_test, params):
+    
     hidden_size = params['hidden_size'];  
     
     T, batch_size, input_size = input_test.shape
@@ -732,11 +733,17 @@ def f_RNN_test(rnn, loss, input_test, output_test, params):
     output3 = output.permute((1, 2, 0))
     target2 = (torch.argmax(target, dim =2) * torch.ones(T, batch_size)).long()
     target3 = target2.permute((1, 0))
+    
     loss2 = loss(output3, target3)
     
     lossT = np.zeros((T, batch_size))
-    for n_t in range(T):
-        for n_bt2 in range(batch_size):
+    loss3 = np.zeros((batch_size))
+    
+    
+    for n_bt2 in range(batch_size):
+        loss3[n_bt2] = loss(output[:, n_bt2, :], target2[:, n_bt2]).item()
+        
+        for n_t in range(T):
             lossT[n_t, n_bt2] = loss(output[n_t, n_bt2, :], target2[n_t, n_bt2]).item()
 
     
@@ -746,7 +753,7 @@ def f_RNN_test(rnn, loss, input_test, output_test, params):
                'target_idx':    target2.detach().numpy(),
                
                'output':        output.detach().numpy(),
-               'loss':          loss2.item(),
+               'loss':          loss3,
                'lossT':         lossT
                }
     
@@ -775,8 +782,11 @@ def f_RNN_test_ctx(rnn, loss, input_test, output_test, params):
     loss2 = loss(output3, target3)
     
     lossT = np.zeros((T, batch_size))
-    for n_t in range(T):
-        for n_bt2 in range(batch_size):
+    loss3 = np.zeros((batch_size))
+    
+    for n_bt2 in range(batch_size):
+        loss3[n_bt2] = loss(output[:, n_bt2, :], target2[:, n_bt2]).item()
+        for n_t in range(T):
             lossT[n_t, n_bt2] = loss(output[n_t, n_bt2, :], target2[n_t, n_bt2]).item()
 
     rnn_out = {'rates':         rates.detach().numpy(),
@@ -785,7 +795,7 @@ def f_RNN_test_ctx(rnn, loss, input_test, output_test, params):
                'target_idx':    target2.detach().numpy(),
                
                'output':        output.detach().numpy(),
-               'loss':          loss2.item(),
+               'loss':          loss3,
                'lossT':         lossT,
                }
 

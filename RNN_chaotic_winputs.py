@@ -40,7 +40,7 @@ from datetime import datetime
 #%% params
 compute_loss = 1
 train_RNN = 1
-save_RNN = 0
+save_RNN = 1
 load_RNN = 0
 plot_deets = 1
 
@@ -281,51 +281,55 @@ test_oddball_ctx = f_RNN_test_ctx(rnn, loss_ctx, input_test_oddball, output_test
 
 #%%
 
+# plt.close('all')
+
+
 if train_RNN:
     sm_bin = 50#round(1/params['dt'])*50;
-    trial_len = out_temp_all.shape[1]
+    #trial_len = out_temp_all.shape[1]
     kernel = np.ones(sm_bin)/sm_bin
     
-    loss_train = train_cont['loss'].T.flatten()
+    loss_train = np.asarray(train_out['loss'])# .T.flatten()
     loss_train_cont_sm = np.convolve(loss_train, kernel, mode='valid')
-    loss_x = np.arange(len(loss_train_cont_sm)) #/(trial_len)
+    loss_x = np.arange(len(loss_train_cont_sm)) + sm_bin/2 #/(trial_len)
     loss_x_raw = np.arange(len(loss_train)) #/(trial_len)
     
-    loss_test_cont_sm = np.convolve(test_cont['loss'], kernel, mode='valid')
-    loss_x_test = np.arange(len(loss_test_cont_sm)) #/(trial_len)
+    loss_test_cont = np.asarray(test_cont_freq['loss'])
+    loss_test_cont_sm = np.convolve(loss_test_cont, kernel, mode='valid')
+    loss_x_test_raw = np.arange(len(loss_test_cont))
+    loss_x_test = np.arange(len(loss_test_cont_sm))  + sm_bin/2#/(trial_len)
+    
+    loss_test_ob = np.asarray(test_oddball_ctx['loss'])
+    loss_test_ob_sm = np.convolve(loss_test_ob, kernel, mode='valid')
+    loss_x_test_ob_raw = np.arange(len(loss_test_ob))
+    loss_x_test_ob = np.arange(len(loss_test_ob_sm))  + sm_bin/2#/(trial_len)
     
     
     plt.figure()
-    plt.semilogy(loss_x_raw, loss_train)
-    plt.semilogy(loss_x_test, loss_test_cont_sm)
-    plt.legend(('train', 'test'))
+    plt.semilogy(loss_x_raw, loss_train, 'lightblue')
+    plt.semilogy(loss_x, loss_train_cont_sm, 'darkblue')
+    plt.semilogy(loss_x_test_raw, loss_test_cont, 'lightgreen')
+    plt.semilogy(loss_x_test, loss_test_cont_sm, 'darkgreen')
+    plt.semilogy(loss_x_test_ob_raw, loss_test_ob, 'pink')
+    plt.semilogy(loss_x_test_ob, loss_test_ob_sm, 'darkred')
+    plt.legend(('train', 'train sm', 'test cont', 'test cont sm', 'test oddball', 'test oddball dm'))
     plt.xlabel('trials')
     plt.ylabel('NLL loss')
     plt.title(fname_RNN_save)
     
-    
-    plt.figure()
-    plt.semilogy(loss_x, loss_train_cont_sm)
-    plt.semilogy(loss_x_test, loss_test_cont_sm)
-    plt.legend(('train', 'test'))
-    plt.xlabel('trials')
-    plt.ylabel('NLL loss')
-    plt.title(fname_RNN_save)
 
 
 #%% add loss of final pass to train data
 
 if train_RNN:
-    T, batch_size, num_neurons = train_out_cont['rates'].shape
+    T, batch_size, num_neurons = train_out['rates'].shape
     
-    train_out_cont['target']
-    
-    output2 = torch.tensor(train_out_cont['output'])
-    target2 =  torch.tensor(train_out_cont['target_idx'])
-    train_out_cont['lossT'] = np.zeros((T, batch_size))
+    output2 = torch.tensor(train_out['output'])
+    target2 =  torch.tensor(train_out['target_idx'])
+    train_out['lossT'] = np.zeros((T, batch_size))
     for n_t in range(T):
         for n_bt2 in range(batch_size):
-            train_out_cont['lossT'][n_t, n_bt2] = loss(output2[n_t, n_bt2, :], target2[n_t, n_bt2].long()).item()
+            train_out['lossT'][n_t, n_bt2] = loss_ctx(output2[n_t, n_bt2, :], target2[n_t, n_bt2].long()).item()
     
 #%% plot train data
     
