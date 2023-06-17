@@ -52,7 +52,7 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'isi_duration':                   0.5,
           'num_freq_stim':                  10,
           'num_ctx':                        2,
-          'oddball_stim':                   [2, 5, 8],
+          'oddball_stim':                   np.arange(10)+1,
           'dd_frac':                        0.1,
           'dt':                             0.05,
           
@@ -274,6 +274,10 @@ test_oddball_freq = f_RNN_test(rnn, loss_freq, input_test_oddball, output_test_o
 
 test_oddball_ctx = f_RNN_test_ctx(rnn, loss_ctx, input_test_oddball, output_test_oddball_ctx, params)
 
+#%%
+
+
+
 #%% test oddball
 
 #train_oddball = f_RNN_test(rnn, loss_ctx, input_train_oddball_freq, output_train_oddball_ctx, params)
@@ -334,7 +338,7 @@ if train_RNN:
 #%% plot train data
     
 if train_RNN:   
-    f_plot_rates2(train_out_cont, 'train', num_plot_batches = 5)
+    f_plot_rates2(train_out, 'train', num_plot_batches = 5)
 
 
 #%%
@@ -358,6 +362,28 @@ f_plot_rates(test_oddball_ctx, input_test_oddball, output_test_oddball_freq, 'te
 f_plot_rates_ctx(test_oddball_ctx, input_test_oddball2, output_test_oddball_ctx2, 'test oddball')
 
 
+#%%
+
+w_in = np.asarray(rnn.i2h.weight.data)
+
+w_r = np.asarray(rnn.h2h.weight.data)
+
+w_o = np.asarray(rnn.h2o.weight.data)
+
+np.min(w_r)
+
+plt.figure()
+plt.imshow(w_in.T)
+plt.colorbar()
+
+
+plt.figure()
+plt.imshow(w_r)
+plt.colorbar()
+
+plt.figure()
+plt.imshow(w_o)
+plt.colorbar()
 
 
 #%%
@@ -858,69 +884,6 @@ savemat(fpath+ save_fname, data_save)
 #%%
 
 
-
-#%%
-# W is inside i2h.weight
-
-# i2h = nn.Linear(input_size, hidden_size)
-# h2h = nn.Linear(hidden_size, hidden_size)
-# h2o = nn.Linear(hidden_size, output_size)
-# #softmax = nn.LogSoftmax(dim=1)
-# tanh1 = nn.Tanh();
-# softmax1 = nn.LogSoftmax(dim=1);
-
-#%% fix weights
-
-# wh2h = torch.empty(hidden_size, hidden_size)
-# nn.init.normal_(wh2h, mean=0.0, std = 1)
-
-# std1 = g/np.sqrt(hidden_size);
-
-# wh2h = wh2h - np.mean(wh2h.detach().numpy());
-# wh2h = wh2h * std1;
-
-# h2h.weight.data = wh2h;
-
-# wi2h = torch.empty(hidden_size, input_size)
-# nn.init.normal_(wi2h, mean=0.0, std = 1)
-
-# std1 = g/np.sqrt(hidden_size);
-
-# wi2h = wi2h - np.mean(wi2h.detach().numpy());
-# wi2h = wi2h * std1;
-
-# i2h.weight.data = wi2h;
-#%%
-# rates_all = np.zeros((hidden_size, T));
-# outputs_all = np.zeros((output_size, T));
-
-# rate = torch.empty(1, hidden_size);
-
-# nn.init.uniform_(rate, a=0, b=1)
-
-# rates_all[:,0] = rate.detach().numpy()[0,:];
-
-# for n_t in range(T-1):
-    
-#     rate_new = tanh1(i2h(input_sig[:,n_t]) + h2h(rate))
-    
-#     rate_new = (1-alpha)*rate + alpha*rate_new
-    
-#     rates_all[:,n_t+1] = rate_new.detach().numpy()[0,:];
-    
-#     rate = rate_new;
-    
-#     output = softmax1(h2o(rate_new))
-    
-#     outputs_all[:,n_t+1] = output.detach().numpy()[0,:];
-    
-#     target2 = torch.argmax(target[:,n_t]) * torch.ones(1) # torch.tensor()
-    
-#     loss2 = loss(output, target2.long())
-    
-    
-    
-    
     
 
 #%% testing
