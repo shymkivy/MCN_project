@@ -47,6 +47,7 @@ plot_deets = 1
 #%% input params
 
 params = {'train_type':                     'oddball2',     #   oddball2, freq2  standard, linear, oddball, freq_oddball,
+          'device':                         'cuda',         # 'cpu', 'cuda'
           
           'stim_duration':                  0.5,
           'isi_duration':                   0.5,
@@ -69,11 +70,11 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'test_trials_in_sample':          400,
           
           'input_size':                     50,
-          'hidden_size':                    250,            # number of RNN neurons
+          'hidden_size':                    20,            # number of RNN neurons
           'g':                              1,  # 1            # recurrent connection strength 
           'tau':                            0.5,
-          'learning_rate':                  0.001,           # 0.005
-          'activation':                     'ReLU',
+          'learning_rate':                  0.01,           # 0.005
+          'activation':                     'ReLU',             # ReLU tanh
           
           
           'stim_t_std':                     3,              # 3 or 0
@@ -85,8 +86,8 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
 
 now1 = datetime.now()
 
-name_tag = '%s_%dtrain_samp_%s_%dtrials_%dstim_%dbatch_%.4flr_%d_%d_%d_%dh_%dm' % (params['train_type'], 
-            params['train_num_samples_ctx'], params['activation'], params['train_trials_in_sample'], params['num_freq_stim'], 
+name_tag = '%s_%dtrainsamp_%dneurons_%s_%dtrials_%dstim_%dbatch_%.4flr_%d_%d_%d_%dh_%dm' % (params['train_type'], 
+            params['train_num_samples_ctx'], params['hidden_size'], params['activation'], params['train_trials_in_sample'], params['num_freq_stim'], 
             params['train_batch_size'], params['learning_rate'],
             now1.year, now1.month, now1.day, now1.hour, now1.minute)
 
@@ -94,7 +95,7 @@ name_tag = '%s_%dtrain_samp_%s_%dtrials_%dstim_%dbatch_%.4flr_%d_%d_%d_%dh_%dm' 
 
 #fname_RNN_load = 'test_20k_std3'
 #fname_RNN_load = '50k_20stim_std3';
-fname_RNN_load = 'oddball2_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_5_28_13h_15m_RNN'
+fname_RNN_load = 'oddball2_40000train_samp_%dn_ReLU_20trials_20stim_64batch_0.0010lr_2023_6_20_12h_23m_RNN'
 
 #fname_RNN_save = 'test_50k_std4'
 #fname_RNN_save = '50k_20stim_std3'
@@ -137,13 +138,13 @@ output_size_ctx = params['num_ctx'] + 1
 hidden_size = params['hidden_size'];
 alpha = params['dt']/params['tau'];         
 
-rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, activation=params['activation'])
+rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, activation=params['activation']).to(params['device'])
 rnn.init_weights(params['g'])
 
 #%%
 #loss = nn.NLLLoss()
 loss_freq = nn.CrossEntropyLoss()
-loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor([0.1, 0.1, 0.9]))  #1e-10
+loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor([0.1, 0.1, 0.9]).to(params['device']))  #1e-10
 
 train_out = {}     # initialize outputs, so they are saved when process breaks
 
@@ -277,7 +278,6 @@ test_oddball_ctx = f_RNN_test_ctx(rnn, loss_ctx, input_test_oddball, output_test
 #%%
 
 
-
 #%% test oddball
 
 #train_oddball = f_RNN_test(rnn, loss_ctx, input_train_oddball_freq, output_train_oddball_ctx, params)
@@ -351,7 +351,7 @@ f_plot_rates2(test_oddball_ctx, 'test_oddball_ctx', num_plot_batches = 5)
 
 
 #%%
-f_plot_rates(test_cont, input_test_cont, output_test_cont, 'test cont')
+f_plot_rates(test_cont_freq, input_test_cont, output_test_cont, 'test cont')
 
 f_plot_rates(test_oddball, input_test_oddball, output_test_oddball, 'test oddball')
 
@@ -364,26 +364,102 @@ f_plot_rates_ctx(test_oddball_ctx, input_test_oddball2, output_test_oddball_ctx2
 
 #%%
 
+# plt.close('all')
+
 w_in = np.asarray(rnn.i2h.weight.data)
 
 w_r = np.asarray(rnn.h2h.weight.data)
 
 w_o = np.asarray(rnn.h2o.weight.data)
 
-np.min(w_r)
 
 plt.figure()
-plt.imshow(w_in.T)
+plt.imshow(w_in.T, aspect='auto')
 plt.colorbar()
+plt.title('Input')
+plt.xlabel('W recurrent')
+plt.ylabel('W input')
 
+if 0:
+    print('Saving RNN %s' % fname_RNN_save)
+    plt.savefig(path1 + '/RNN_data/' + fname_RNN_save + 'win_fig.png', dpi=1200)
 
 plt.figure()
 plt.imshow(w_r)
 plt.colorbar()
+plt.title('Recurrents')
+plt.xlabel('W recurrent')
+plt.ylabel('W recurrent')
+
+if 0:
+    print('Saving RNN %s' % fname_RNN_save)
+    plt.savefig(path1 + '/RNN_data/' + fname_RNN_save + 'wr_fig.png', dpi=1200)
 
 plt.figure()
-plt.imshow(w_o)
+plt.imshow(w_o, aspect='auto')
 plt.colorbar()
+plt.title('Output')
+plt.xlabel('W recurrent')
+plt.ylabel('W output')
+
+if 0:
+    print('Saving RNN %s' % fname_RNN_save)
+    plt.savefig(path1 + '/RNN_data/' + fname_RNN_save + 'wout_fig.png', dpi=1200)
+
+
+#%%
+
+idx1 = np.argmax(w_in, axis = 1)
+idx2 = np.argsort(idx1)
+
+
+plt.figure()
+plt.imshow(w_in[idx2,:].T, aspect='auto')
+plt.colorbar()
+plt.title('Input')
+plt.xlabel('W recurrent')
+plt.ylabel('W input')
+
+if 0:
+    print('Saving RNN %s' % fname_RNN_save)
+    plt.savefig(path1 + '/RNN_data/' + fname_RNN_save + 'winsort_fig.png', dpi=1200)
+
+
+plt.figure()
+plt.plot(w_in[:20,:].T)
+
+
+
+#%%
+#flat_dist_met = pdist(rates_all, metric='cosine');
+#cs = 1- squareform(flat_dist_met);
+
+
+res_linkage = linkage(w_r, method='average')
+
+N = len(w_r)
+res_ord = seriation(res_linkage,N, N + N -2)
+
+plt.figure()
+plt.imshow(w_r[res_ord,:][:,res_ord])
+plt.colorbar()
+plt.title('Recurrents')
+plt.xlabel('W recurrent sorted')
+plt.ylabel('W recurrent sorted')
+
+if 0:
+    print('Saving RNN %s' % fname_RNN_save)
+    plt.savefig(path1 + '/RNN_data/' + fname_RNN_save + 'wrsort_fig.png', dpi=1200)
+
+
+#%%
+
+cs_ord = 1- squareform(pdist(rates_all[res_ord], metric='cosine'));
+
+plt.figure()
+plt.imshow(cs_ord)
+plt.title('cosine similarity sorted')
+
 
 
 #%%

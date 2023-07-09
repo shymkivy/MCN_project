@@ -354,7 +354,7 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
     
     for n_samp in range(num_samp):
          
-        rate_start = rnn.init_rate(params['train_batch_size'])
+        rate_start = rnn.init_rate(params['train_batch_size']).to(params['device'])
         
         # get sample
         
@@ -363,8 +363,8 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
         input_train_oddball, _ = f_gen_input_output_from_seq(trials_train_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
         _, output_train_oddball_ctx = f_gen_input_output_from_seq(trials_train_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
         
-        input_sig = torch.tensor(input_train_oddball).float()
-        target_ctx = torch.tensor(output_train_oddball_ctx).float()
+        input_sig = torch.tensor(input_train_oddball).float().to(params['device'])
+        target_ctx = torch.tensor(output_train_oddball_ctx).float().to(params['device'])
         
         for n_rep in range(num_rep):
             
@@ -372,8 +372,7 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
             
             output_ctx, rate = rnn.forward_ctx(input_sig, rate_start)
             
-            target_ctx2 = (torch.argmax(target_ctx, dim =2) * torch.ones(T, batch_size)).long()
-            
+            target_ctx2 = (torch.argmax(target_ctx, dim =2) * torch.ones(T, batch_size).to(params['device'])).long()
             
             if loss_strat == 1:
                 output_ctx3 = output_ctx.permute((1, 2, 0))
@@ -399,6 +398,8 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
                 
                 loss2 = sum(loss4)/batch_size
             
+            
+            
             # for nnnlosss
             #output_sm = rnn.softmax(output)        
             #loss2 = loss(output_sm.T, target2.long())
@@ -409,11 +410,11 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
             #rnn_out['loss'][n_samp, n_rep] = loss2.item()
             rnn_out['loss'].append(loss2.item())
             
-            rnn_out['rates'] = rate.detach().numpy()
-            rnn_out['input'] = input_sig.detach().numpy()
-            rnn_out['output'] = output_ctx.detach().numpy()
-            rnn_out['target'] = target_ctx.detach().numpy()
-            rnn_out['target_idx'] = target_ctx2.detach().numpy()
+            rnn_out['rates'] = rate.detach().cpu().numpy()
+            rnn_out['input'] = input_sig.detach().cpu().numpy()
+            rnn_out['output'] = output_ctx.detach().cpu().numpy()
+            rnn_out['target'] = target_ctx.detach().cpu().numpy()
+            rnn_out['target_idx'] = target_ctx2.detach().cpu().numpy()
             
             if num_rep>1:
                 if reinit_rate:

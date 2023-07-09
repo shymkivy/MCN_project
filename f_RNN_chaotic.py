@@ -13,7 +13,7 @@ import torch.nn as nn
 #%%
 
 class RNN_chaotic(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size_freq, output_size_ctx, alpha, activation='tanh'):
+    def __init__(self, input_size, hidden_size, output_size_freq, output_size_ctx, alpha, activation='tanh'): # , device='cpu'
         super(RNN_chaotic, self).__init__()
         
         self.hidden_size = hidden_size
@@ -21,9 +21,10 @@ class RNN_chaotic(nn.Module):
         self.output_size = output_size_freq
         self.output_size_ctx = output_size_ctx
         self.alpha = alpha
-        self.i2h = nn.Linear(input_size, hidden_size)
-        self.h2h = nn.Linear(hidden_size, hidden_size)
-        self.h2o = nn.Linear(hidden_size, output_size_freq)
+        #self.device = device
+        self.i2h = nn.Linear(input_size, hidden_size)   #, device=self.device
+        self.h2h = nn.Linear(hidden_size, hidden_size)  #, device=self.device
+        self.h2o = nn.Linear(hidden_size, output_size_freq) #, device=self.device
         if output_size_ctx:
             self.h2o_ctx = nn.Linear(hidden_size, output_size_ctx)
         self.softmax = nn.LogSoftmax(dim=0)
@@ -31,33 +32,45 @@ class RNN_chaotic(nn.Module):
             self.activ = nn.Tanh()
         elif activation == 'ReLU':
             self.activ = nn.ReLU()
+            
         #self.sigmoid = nn.Sigmoid()
         
     def init_weights(self, g):
         
-        
-        wh2h = torch.empty(self.hidden_size, self.hidden_size)
-        nn.init.normal_(wh2h, mean=0.0, std = 1)
-        
         std1 = g/np.sqrt(self.hidden_size);
         
-        wh2h = wh2h - np.mean(wh2h.detach().numpy());
+        # recurrent
+        wh2h = self.h2h.weight.data
+        nn.init.normal_(wh2h, mean=0.0, std = 1)
+        
+        mean1 = wh2h.mean()
+        wh2h = wh2h - mean1;
         wh2h = wh2h * std1;
         
         self.h2h.weight.data = wh2h;
         
-        wi2h = torch.empty(self.hidden_size, self.input_size)
+        # input to hidden
+        wi2h = self.i2h.weight.data
         nn.init.normal_(wi2h, mean=0.0, std = 1)
         
-        std1 = g/np.sqrt(self.hidden_size);
-        
-        wi2h = wi2h - np.mean(wi2h.detach().numpy());
+        mean1 = wi2h.mean()
+        wi2h = wi2h - mean1;
         wi2h = wi2h * std1;
+    
+        self.i2h.weight.data = wi2h
         
-        self.i2h.weight.data = wi2h;
+        # hidden to output
+        wh2o = self.h2o.weight.data
+        nn.init.normal_(wh2o, mean=0.0, std = 1)
+        
+        mean1 = wh2o.mean()
+        wh2o = wh2o - mean1;
+        wh2o = wh2o * std1;
+    
+        self.h2o.weight.data = wh2o
     
     def init_rate(self, batch_size=1):
-        rate = torch.empty((batch_size, self.hidden_size));
+        rate = torch.empty((batch_size, self.hidden_size)) # , device=self.device
         nn.init.uniform_(rate, a=-1, b=1)
         return rate
         
@@ -87,7 +100,7 @@ class RNN_chaotic(nn.Module):
         
         rate_all = []
         num_steps = input_sig.size(0)
-        
+ 
         for n_st in range(num_steps):
             rate = self.recurrence(input_sig[n_st,:,:], rate)
             rate_all.append(rate)
@@ -119,7 +132,7 @@ class RNN_chaotic(nn.Module):
         
         rate_all = []
         num_steps = input_sig.size(0)
-        
+       
         for n_st in range(num_steps):
             rate = self.recurrence(input_sig[n_st,:,:], rate)
             rate_all.append(rate)
