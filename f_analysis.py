@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from random import sample, random
 
+from sklearn.decomposition import PCA
+
 #%% for getting sorting order from linkage
 def seriation(Z,N,cur_index):
     '''
@@ -154,6 +156,63 @@ def f_plot_rates2(rnn_data, title_tag, num_plot_batches = 1, num_plot_cells = 10
             plt.title('loss')
             plt.axis('off')
 
+#%% 
+def f_plot_rates_only(rnn_data, title_tag = '', num_plot_batches = 1, num_plot_cells = 10, preprocess = True, norm_std_fac = 6, start_from = 0, plot_extra = 0):
+    rates = rnn_data['rates']
+    
+    #rates = test_spont['rates']
+    
+    
+    T, batch_size, num_cells = rates.shape
+    
+    rates2 = rates[start_from:,:,:]
+    
+    means1 = np.mean(rates2, axis=0)
+    
+    stds1 = np.std(rates2, axis=0)
+    
+    
+    plt.figure()
+    plt.plot(means1)
+    plt.xlabel('batches')
+    plt.ylabel('mean magnitude')
+    plt.title('cell means across batches')
+    
+    plt.figure()
+    plt.plot(stds1)
+    plt.xlabel('batches')
+    plt.ylabel('std magnitude')
+    plt.title('cell stds across batches')
+    
+    num_plot_batches2 = min(num_plot_batches, batch_size)
+    
+    plot_batches = np.sort(sample(range(batch_size), num_plot_batches2))
+    
+    for n_bt in range(num_plot_batches2):
+        bt = plot_batches[n_bt]
+        
+        #rates3 = rates2[:,bt,:]
+        
+        rates3 = rates[:,bt,:]
+        
+        if preprocess:
+            rates3n = rates3 - means1[bt,:]
+        
+            stds2 = stds1[bt,:]
+            idx1 = stds2 > 0
+        
+            rates3n[:,idx1] = rates3n[:,idx1]/stds2[idx1]/norm_std_fac
+        else:
+            rates3n = rates3
+        
+        plot_cells = np.sort(sample(range(num_cells), num_plot_cells))
+        
+        plt.figure()
+        for n_plt in range(num_plot_cells):  
+            shift = n_plt    
+            plt.plot(rates3n[:,plot_cells[n_plt]]+shift)
+        plt.title('%s; batch %d; example cells' % (title_tag, bt))
+        
 #%%
 
 def f_plot_rates_ctx(rnn_data, input_sig, target, title_tag):

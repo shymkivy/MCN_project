@@ -717,22 +717,24 @@ def f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train, output_train, o
                }
     return rnn_out   
 #%%
-def f_RNN_test(rnn, loss, input_test, output_test, params):
-    
+def f_RNN_test(rnn, loss, input_test, output_test, params, paradigm='freq'):
     hidden_size = params['hidden_size'];  
     
     T, batch_size, input_size = input_test.shape
     output_size = output_test.shape[2]
     
-    input1 = torch.tensor(input_test).float()
-    target = torch.tensor(output_test).float()
+    input1 = torch.tensor(input_test).float().to(params['device'])
+    target = torch.tensor(output_test).float().to(params['device'])
     
-    rate_start = rnn.init_rate(batch_size)
-
-    output, rates = rnn.forward_freq(input1, rate_start)
+    rate_start = rnn.init_rate(batch_size).to(params['device'])
+    
+    if paradigm == 'freq':
+        output, rates = rnn.forward_freq(input1, rate_start)
+    elif paradigm == 'ctx':
+        output, rates = rnn.forward_ctx(input1, rate_start)
 
     output3 = output.permute((1, 2, 0))
-    target2 = (torch.argmax(target, dim =2) * torch.ones(T, batch_size)).long()
+    target2 = (torch.argmax(target, dim =2) * torch.ones(T, batch_size).to(params['device'])).long()
     target3 = target2.permute((1, 0))
     
     loss2 = loss(output3, target3)
@@ -748,12 +750,12 @@ def f_RNN_test(rnn, loss, input_test, output_test, params):
             lossT[n_t, n_bt2] = loss(output[n_t, n_bt2, :], target2[n_t, n_bt2]).item()
 
     
-    rnn_out = {'rates':         rates.detach().numpy(),
-               'input':         input1.detach().numpy(),
-               'target':        target.detach().numpy(),
-               'target_idx':    target2.detach().numpy(),
+    rnn_out = {'rates':         rates.detach().cpu().numpy(),
+               'input':         input1.detach().cpu().numpy(),
+               'target':        target.detach().cpu().numpy(),
+               'target_idx':    target2.detach().cpu().numpy(),
                
-               'output':        output.detach().numpy(),
+               'output':        output.detach().cpu().numpy(),
                'loss':          loss3,
                'lossT':         lossT
                }
@@ -770,15 +772,15 @@ def f_RNN_test_ctx(rnn, loss, input_test, output_test, params):
     T, batch_size, input_size = input_test.shape
     output_size = output_test.shape[2]
 
-    input1 = torch.tensor(input_test).float()
-    target = torch.tensor(output_test).float()
+    input1 = torch.tensor(input_test).float().to(params['device'])
+    target = torch.tensor(output_test).float().to(params['device'])
 
-    rate_start = rnn.init_rate(batch_size)
+    rate_start = rnn.init_rate(batch_size).to(params['device'])
     
     output, rates = rnn.forward_ctx(input1, rate_start)
     
     output3 = output.permute((1, 2, 0))
-    target2 = (torch.argmax(target, dim =2) * torch.ones(T, batch_size)).long()
+    target2 = (torch.argmax(target, dim =2) * torch.ones(T, batch_size).to(params['device'])).long()
     target3 = target2.permute((1, 0))
     loss2 = loss(output3, target3)
     
@@ -790,17 +792,41 @@ def f_RNN_test_ctx(rnn, loss, input_test, output_test, params):
         for n_t in range(T):
             lossT[n_t, n_bt2] = loss(output[n_t, n_bt2, :], target2[n_t, n_bt2]).item()
 
-    rnn_out = {'rates':         rates.detach().numpy(),
-               'input':         input1.detach().numpy(),
-               'target':        target.detach().numpy(),
-               'target_idx':    target2.detach().numpy(),
+    rnn_out = {'rates':         rates.detach().cpu().numpy(),
+               'input':         input1.detach().cpu().numpy(),
+               'target':        target.detach().cpu().numpy(),
+               'target_idx':    target2.detach().cpu().numpy(),
                
-               'output':        output.detach().numpy(),
+               'output':        output.detach().cpu().numpy(),
                'loss':          loss3,
                'lossT':         lossT,
                }
 
 
+    print('done')
+    
+    return rnn_out
+
+#%%
+def f_RNN_test_spont(rnn, input_spont, params):
+    
+    if not len(input_spont):
+        print('not coded yet')
+    else:
+        T, batch_size, input_size = input_spont.shape
+        input1 = torch.tensor(input_spont).float().to(params['device'])
+    
+    rate_start = rnn.init_rate(batch_size).to(params['device'])
+    
+    _, rates = rnn.forward_freq(input1, rate_start)
+    
+    
+    rnn_out = {'rates':         rates.detach().cpu().numpy(),
+               'input':         input1.detach().cpu().numpy(),
+               
+               }
+    
+    
     print('done')
     
     return rnn_out

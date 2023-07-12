@@ -53,7 +53,7 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'isi_duration':                   0.5,
           'num_freq_stim':                  10,
           'num_ctx':                        2,
-          'oddball_stim':                   [3, 6], #np.arange(10)+1,
+          'oddball_stim':                   np.arange(10)+1,
           'dd_frac':                        0.1,
           'dt':                             0.05,
           
@@ -287,12 +287,10 @@ test_oddball_ctx = f_RNN_test(rnn, loss_ctx, input_test_oddball, output_test_odd
 
 #%%
 
-trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'])
+input_shape = (round((params['stim_duration'] + params['isi_duration'])/params['dt']*params['test_trials_in_sample']), params['test_batch_size'], params['input_size'])
+input_spont = np.random.normal(0,params['input_noise_std'], input_shape)
 
-input_shape = (trial_len*params['test_trials_in_sample'], params['test_batch_size'], params['input_size'])
-input_spont1 = np.random.normal(0,params['input_noise_std'], input_shape)
-
-test_spont = f_RNN_test_spont(rnn, input_spont1, params)
+test_spont = f_RNN_test_spont(rnn, input_spont, params)
 
 #%% test oddball
 
@@ -365,10 +363,6 @@ f_plot_rates2(test_oddball_freq, 'test_oddball_freq', num_plot_batches = 5)
 
 f_plot_rates2(test_oddball_ctx, 'test_oddball_ctx', num_plot_batches = 5)
 
-#%%
-
-
-
 
 #%%
 f_plot_rates(test_cont_freq, input_test_cont, output_test_cont, 'test cont')
@@ -380,184 +374,6 @@ f_plot_rates(test_oddball, input_test_oddball, output_test_oddball, 'test oddbal
 f_plot_rates(test_oddball_ctx, input_test_oddball, output_test_oddball_freq, 'test oddball')
 
 f_plot_rates_ctx(test_oddball_ctx, input_test_oddball2, output_test_oddball_ctx2, 'test oddball')
-
-
-#%%
-
-f_plot_rates_only(test_spont, 'spont', num_plot_batches = 1, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = 1000, plot_extra = 0)
-
-norm_method = 0
-
-start_val = 2000
-
-rates = test_spont['rates']
-
-rates2 = rates[start_val:,:,:]
-
-
-rates3 = rates
-#rates3 = rates2
-
-means1 = np.mean(rates3, axis=0)
-stds1 = np.std(rates3, axis=0)
-
-if not norm_method:
-    rates3n = rates3
-elif norm_method == 1:
-    rates3n = rates3 - means1
-elif norm_method == 2:
-    stds2 = stds1.copy()
-    stds2[stds1 == 0] = 1
-
-    rates3n = rates3 - means1
-    rates3n = rates3n/stds2
-
-
-T, num_bouts, num_cells = rates3n.shape
-
-rates3n2d = np.reshape(rates3n, (T*num_bouts, num_cells))
-
-pca = PCA();
-pca.fit(rates3n2d)
-
-proj_data = pca.fit_transform(rates3n2d)
-
-comp_out3d = np.reshape(proj_data, (T, num_bouts, num_cells))
-
-
-
-plt.figure()
-#plt.subplot(1,2,1);
-plt.plot(pca.explained_variance_ratio_, 'o-')
-plt.ylabel('fraction')
-plt.title('Explained Variance'); plt.xlabel('component')
-
-
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(num_bouts): #num_bouts
-    plt.plot(comp_out3d[:, n_bt, 0], comp_out3d[:, n_bt, 1])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC2')
-
-
-idx1 = np.linspace(0, T-trial_len, round(T/trial_len)).astype(int)
-
-
-idx2 = idx1[0:25]
-
-n_bt  = 0
-
-plt.figure()
-plt.plot(comp_out3d[:T, n_bt, 0], comp_out3d[:T, n_bt, 1])
-plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
-plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
-
-plot_T = 800
-idx3 = np.linspace(0, plot_T-trial_len, round(plot_T/trial_len)).astype(int)
-
-plt.figure()
-plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 1])
-plt.plot(comp_out3d[idx3, n_bt, 0], comp_out3d[idx3, n_bt, 1], 'o')
-plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
-plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
-
-#%%
-
-f_plot_rates_only(test_oddball_ctx, 'ctx', num_plot_batches = 1, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = 1000, plot_extra = 0)
-
-rates = test_oddball_ctx['rates']
-
-start_val = 2000
-
-
-rates2 = rates[start_val:,:,:]
-
-
-rates3n = rates
-
-#rates3n = rates2
-
-T, num_bouts, num_cells = rates3n.shape
-
-rates3n2d = np.reshape(rates3n, (T*num_bouts, num_cells))
-
-
-pca = PCA();
-pca.fit(rates3n2d)
-
-
-proj_data = pca.fit_transform(rates3n2d)
-
-comp_out3d = np.reshape(proj_data, (T, num_bouts, num_cells))
-
-
-
-plt.figure()
-#plt.subplot(1,2,1);
-plt.plot(pca.explained_variance_ratio_, 'o-')
-plt.ylabel('fraction')
-plt.title('Explained Variance'); plt.xlabel('component')
-
-
-
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(3): #num_bouts
-    plt.plot(comp_out3d[:, n_bt, 0], comp_out3d[:, n_bt, 1])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC2')
-
-
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(3): #num_bouts
-    plt.plot(comp_out3d[:, n_bt, 0], comp_out3d[:, n_bt, 2])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC3')
-
-
-plot_T = 800
-
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(3): #num_bouts
-    plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 1])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC2')
-
-
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(3): #num_bouts
-    plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 2])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC3')
-
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(3): #num_bouts
-    plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 4])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC5')
-
-
-
-
-idx1 = np.linspace(0, T-trial_len, round(T/trial_len)).astype(int)
-
-
-idx2 = idx1[0:25]
-
-n_bt  = 0
-
-plt.figure()
-plt.plot(comp_out3d[:T, n_bt, 0], comp_out3d[:T, n_bt, 1])
-plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
-plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
-
-plot_T = 800
-idx3 = np.linspace(0, plot_T-trial_len, round(plot_T/trial_len)).astype(int)
-
-plt.figure()
-plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 1])
-plt.plot(comp_out3d[idx3, n_bt, 0], comp_out3d[idx3, n_bt, 1], 'o')
-plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
-plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
 
 
 #%%
