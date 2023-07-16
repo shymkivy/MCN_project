@@ -178,7 +178,7 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     #  output (T seq_len, batch_size, input_size/output_size, num_samples)
     
     input_noise_std = params['input_noise_std']
-    
+     
     #input_size = params['input_size']
     #trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'])
     #output_size = params['num_freq_stim'] + 1
@@ -205,8 +205,11 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     output_shape = [output_size, T, batch_size, num_samp]
     
     input_mat = stim_templates[:,:,input_trials].reshape(input_shape, order='F') + np.random.normal(0,input_noise_std, input_shape)
-    input_mat = input_mat - np.mean(input_mat)
-    input_mat/np.std(input_mat)
+    
+    if params['normalize_input']:
+        input_mat = input_mat - np.mean(input_mat)
+        input_mat/np.std(input_mat)
+        
     input_mat_out = input_mat.transpose([1,2, 0, 3])
     
     output_mat = output_templates[:,:,input_trials].reshape(output_shape, order='F')

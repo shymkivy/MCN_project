@@ -39,28 +39,28 @@ from datetime import datetime
 
 #%% params
 compute_loss = 1
-train_RNN = 0
-save_RNN = 0
-load_RNN = 1
+train_RNN = 1
+save_RNN = 1
+load_RNN = 0
 plot_deets = 1
 
 #%% input params
 
 params = {'train_type':                     'oddball2',     #   oddball2, freq2  standard, linear, oddball, freq_oddball,
-          'device':                         'cuda',         # 'cpu', 'cuda'
+          'device':                         'cpu',         # 'cpu', 'cuda'
           
           'stim_duration':                  0.5,
           'isi_duration':                   0.5,
           'num_freq_stim':                  10,
           'num_ctx':                        2,
-          'oddball_stim':                   [3, 6], #np.arange(10)+1,
+          'oddball_stim':                   np.arange(10)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
           'dd_frac':                        0.1,
           'dt':                             0.05,
           
           'train_batch_size':               64,
           'train_trials_in_sample':         20,
           'train_num_samples_freq':         1000,
-          'train_num_samples_ctx':          20000,
+          'train_num_samples_ctx':          40000,
 
           'train_repeats_per_samp':         1,
           'train_reinit_rate':              0,
@@ -70,11 +70,12 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'test_trials_in_sample':          400,
           
           'input_size':                     50,
-          'hidden_size':                    20,            # number of RNN neurons
+          'hidden_size':                    25,            # number of RNN neurons
           'g':                              1,  # 1            # recurrent connection strength 
           'tau':                            0.5,
-          'learning_rate':                  0.005,           # 0.005
+          'learning_rate':                  0.001,           # 0.005
           'activation':                     'ReLU',             # ReLU tanh
+          'normalize_input':                False,
           
           
           'stim_t_std':                     3,              # 3 or 0

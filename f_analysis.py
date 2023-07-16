@@ -184,6 +184,10 @@ def f_plot_rates_only(rnn_data, title_tag = '', num_plot_batches = 1, num_plot_c
     plt.ylabel('std magnitude')
     plt.title('cell stds across batches')
     
+    
+    # plt.figure()
+    # plt.plot(stds1, means1, 'o')
+    
     num_plot_batches2 = min(num_plot_batches, batch_size)
     
     plot_batches = np.sort(sample(range(batch_size), num_plot_batches2))
