@@ -32,6 +32,7 @@ from sklearn.cluster import AgglomerativeClustering
 from scipy.cluster.hierarchy import dendrogram, linkage
 from scipy.spatial.distance import pdist, squareform
 from scipy import signal
+from scipy import linalg
 from scipy.io import loadmat, savemat
 import skimage.io
 
@@ -39,9 +40,9 @@ from datetime import datetime
 
 #%% params
 compute_loss = 1
-train_RNN = 1
-save_RNN = 1
-load_RNN = 0
+train_RNN = 0
+save_RNN = 0
+load_RNN = 1
 plot_deets = 1
 
 #%% input params
@@ -68,12 +69,13 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           
           'test_batch_size':                100,
           'test_trials_in_sample':          400,
+          'test_oddball_stim':              np.arange(10)+1,        #[3, 5, 7],
           
           'input_size':                     50,
           'hidden_size':                    25,            # number of RNN neurons
           'g':                              1,  # 1            # recurrent connection strength 
           'tau':                            0.5,
-          'learning_rate':                  0.001,           # 0.005
+          'learning_rate':                  0.002,           # 0.005
           'activation':                     'ReLU',             # ReLU tanh
           'normalize_input':                False,
           
@@ -96,7 +98,7 @@ name_tag = '%s_%dtrainsamp_%dneurons_%s_%dtrials_%dstim_%dbatch_%.4flr_%d_%d_%d_
 
 #fname_RNN_load = 'test_20k_std3'
 #fname_RNN_load = '50k_20stim_std3';
-fname_RNN_load = 'oddball2_20000trainsamp_20neurons_ReLU_20trials_10stim_64batch_0.0050lr_2023_7_9_14h_12m_RNN'
+fname_RNN_load = 'oddball2_30000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0020lr_2023_7_15_14h_42m_RNN'
 
 #fname_RNN_save = 'test_50k_std4'
 #fname_RNN_save = '50k_20stim_std3'
@@ -228,7 +230,7 @@ input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont
 
 
 # test oddball trials
-trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq(params['oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['test_batch_size'])
+trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq(params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['test_batch_size'])
 
 input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
 _, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
@@ -285,6 +287,26 @@ test_cont_freq = f_RNN_test(rnn, loss_freq, input_test_cont, output_test_cont, p
 test_oddball_freq = f_RNN_test(rnn, loss_freq, input_test_oddball, output_test_oddball_freq, params, paradigm='freq')
 
 test_oddball_ctx = f_RNN_test(rnn, loss_ctx, input_test_oddball, output_test_oddball_ctx, params, paradigm='ctx')
+
+
+#%% test
+
+
+input_test_cont2 = input_test_cont.reshape((8000*100, 1, 50), order = 'F')
+output_test_cont2 = output_test_cont.reshape((8000*100, 1, 11), order = 'F')
+
+test_cont_freq2 = f_RNN_test(rnn, loss_freq, input_test_cont2, output_test_cont2, params, paradigm='freq')
+
+#%% test oddball
+
+input_test_oddball2 = input_test_oddball.reshape((8000*100, 1, 50), order = 'F')
+output_test_oddball_freq2 = output_test_oddball_freq.reshape((8000*100, 1, 11), order = 'F')
+output_test_oddball_ctx2 = output_test_oddball_ctx.reshape((8000*100, 1, 3), order = 'F')
+
+
+test_oddball_freq2 = f_RNN_test(rnn, loss_freq, input_test_oddball2, output_test_oddball_freq2, params, paradigm='freq')
+
+test_oddball_ctx2 = f_RNN_test(rnn, loss_ctx, input_test_oddball2, output_test_oddball_ctx2, params, paradigm='ctx')
 
 #%%
 
@@ -385,7 +407,7 @@ f_plot_rates_ctx(test_oddball_ctx, input_test_oddball2, output_test_oddball_ctx2
 
 #%%
 
-f_plot_rates_only(test_spont, 'spont', num_plot_batches = 1, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = 1000, plot_extra = 0)
+f_plot_rates_only(test_spont, 'spont', num_plot_batches = 1, num_plot_cells = 25, preprocess = True, norm_std_fac = 6, start_from = 1000, plot_extra = 0)
 
 norm_method = 0
 
@@ -474,22 +496,36 @@ start_val = 2000
 rates2 = rates[start_val:,:,:]
 
 
-rates3n = rates
-
-#rates3n = rates2
+#rates3n = rates
+rates3n = rates2
 
 T, num_bouts, num_cells = rates3n.shape
 
-rates3n2d = np.reshape(rates3n, (T*num_bouts, num_cells))
+rates3n2d = np.reshape(rates3n, (T*num_bouts, num_cells), order = 'F')
 
 
-pca = PCA();
-pca.fit(rates3n2d)
+rates_mean = np.mean(rates3n2d, axis=0)
+
+#rates3n2dn = rates3n2d
+rates3n2dn = rates3n2d - rates_mean;
 
 
-proj_data = pca.fit_transform(rates3n2d)
 
-comp_out3d = np.reshape(proj_data, (T, num_bouts, num_cells))
+# pca = PCA();
+# pca.fit(rates3n2dn)
+# proj_data = pca.fit_transform(rates3n2d)
+# #V2 = pca.components_
+# #US = pca.fit_transform(rates3n2dn)
+
+
+U, S, V = linalg.svd(rates3n2dn, full_matrices=False)
+#data_back = np.dot(U * S, V)
+#US = U*S
+proj_data = U*S
+
+
+
+comp_out3d = np.reshape(proj_data, (T, num_bouts, num_cells), order = 'F')
 
 
 
@@ -500,47 +536,22 @@ plt.ylabel('fraction')
 plt.title('Explained Variance'); plt.xlabel('component')
 
 
+plot_patches = range(20)#[0, 1, 5]
 
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(3): #num_bouts
-    plt.plot(comp_out3d[:, n_bt, 0], comp_out3d[:, n_bt, 1])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC2')
+plot_T = 500; #800
 
-
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(3): #num_bouts
-    plt.plot(comp_out3d[:, n_bt, 0], comp_out3d[:, n_bt, 2])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC3')
-
-
-plot_T = 800
-
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(3): #num_bouts
-    plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 1])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC2')
-
-
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(3): #num_bouts
-    plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 2])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC3')
-
-plt.figure()
-#plt.subplot(1,2,2);
-for n_bt in range(3): #num_bouts
-    plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 4])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC5')
-
+plot_pc = [[1, 2], [3, 4], [5, 6]]
+for n_pcpl in range(len(plot_pc)):
+    plot_pc2 = plot_pc[n_pcpl]
+    plt.figure()
+    #plt.subplot(1,2,2);
+    for n_bt in plot_patches: #num_bouts
+        plt.plot(comp_out3d[:plot_T, n_bt, plot_pc2[0]-1], comp_out3d[:plot_T, n_bt, plot_pc2[1]-1])
+    plt.title('PCA components'); plt.xlabel('PC%d' % plot_pc2[0]); plt.ylabel('PC%d' % plot_pc2[1])
 
 
 
 idx1 = np.linspace(0, T-trial_len, round(T/trial_len)).astype(int)
-
 
 idx2 = idx1[0:25]
 
@@ -563,6 +574,179 @@ plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2'
 
 #%%
 
+f_plot_rates_only(test_oddball_ctx2, 'ctx', num_plot_batches = 1, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = 1000, plot_extra = 0)
+
+rates = test_oddball_ctx2['rates'].reshape((8000, 100, 25), order = 'F')
+
+start_val = 0
+
+
+rates2 = rates[start_val:,:,:]
+
+
+#rates3n = rates
+rates3n = rates2
+
+T, num_bouts, num_cells = rates3n.shape
+
+rates3n2d = np.reshape(rates3n, (T*num_bouts, num_cells), order = 'F')
+
+
+rates_mean = np.mean(rates3n2d, axis=0)
+
+#rates3n2dn = rates3n2d
+rates3n2dn = rates3n2d - rates_mean;
+
+
+
+# pca = PCA();
+# pca.fit(rates3n2dn)
+# proj_data = pca.fit_transform(rates3n2d)
+# #V2 = pca.components_
+# #US = pca.fit_transform(rates3n2dn)
+
+
+U, S, V = linalg.svd(rates3n2dn, full_matrices=False)
+#data_back = np.dot(U * S, V)
+#US = U*S
+proj_data = U*S
+
+comp_out3d = np.reshape(proj_data, (T, num_bouts, num_cells), order = 'F')
+
+
+
+plt.figure()
+#plt.subplot(1,2,1);
+plt.plot(pca.explained_variance_ratio_, 'o-')
+plt.ylabel('fraction')
+plt.title('Explained Variance'); plt.xlabel('component')
+
+
+plot_patches = range(10)#[0, 1, 5]
+
+plot_T = 800; #800
+
+plot_pc = [[1, 2], [3, 4], [5, 6]]
+for n_pcpl in range(len(plot_pc)):
+    plot_pc2 = plot_pc[n_pcpl]
+    plt.figure()
+    #plt.subplot(1,2,2);
+    for n_bt in plot_patches: #num_bouts
+        plt.plot(comp_out3d[:plot_T, n_bt, plot_pc2[0]-1], comp_out3d[:plot_T, n_bt, plot_pc2[1]-1])
+    plt.title('PCA components'); plt.xlabel('PC%d' % plot_pc2[0]); plt.ylabel('PC%d' % plot_pc2[1])
+
+
+
+idx1 = np.linspace(0, T-trial_len, round(T/trial_len)).astype(int)
+
+idx2 = idx1[0:25]
+
+n_bt  = 0
+
+plt.figure()
+plt.plot(comp_out3d[:T, n_bt, 0], comp_out3d[:T, n_bt, 1])
+plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
+plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
+
+plot_T = 800
+idx3 = np.linspace(0, plot_T-trial_len, round(plot_T/trial_len)).astype(int)
+
+plt.figure()
+plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 1])
+plt.plot(comp_out3d[idx3, n_bt, 0], comp_out3d[idx3, n_bt, 1], 'o')
+plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
+plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
+
+#%%
+f_plot_rates_only(test_oddball_ctx2, 'ctx', num_plot_batches = 1, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = 1000, plot_extra = 0)
+
+
+rates5 = test_oddball_freq2['rates'].reshape((8000, 100, 25), order = 'F')
+rates6 = test_cont_freq2['rates'].reshape((8000, 100, 25), order = 'F')
+
+rates = np.concatenate((rates5, rates6), axis = 1)
+
+
+start_val = 0
+
+
+rates2 = rates[start_val:,:,:]
+
+
+#rates3n = rates
+rates3n = rates2
+
+T, num_bouts, num_cells = rates3n.shape
+
+rates3n2d = np.reshape(rates3n, (T*num_bouts, num_cells), order = 'F')
+
+
+rates_mean = np.mean(rates3n2d, axis=0)
+
+#rates3n2dn = rates3n2d
+rates3n2dn = rates3n2d - rates_mean;
+
+
+
+# pca = PCA();
+# pca.fit(rates3n2dn)
+# proj_data = pca.fit_transform(rates3n2d)
+# #V2 = pca.components_
+# #US = pca.fit_transform(rates3n2dn)
+
+
+U, S, V = linalg.svd(rates3n2dn, full_matrices=False)
+#data_back = np.dot(U * S, V)
+#US = U*S
+proj_data = U*S
+
+comp_out3d = np.reshape(proj_data, (T, num_bouts, num_cells), order = 'F')
+
+
+
+plt.figure()
+#plt.subplot(1,2,1);
+plt.plot(pca.explained_variance_ratio_, 'o-')
+plt.ylabel('fraction')
+plt.title('Explained Variance'); plt.xlabel('component')
+
+
+plot_patches = [1, 2, 3, 4, 5, 101, 102, 103]# range(5)#[0, 1, 5]
+
+plot_T = 800; #800
+
+plot_pc = [[1, 2], [3, 4], [5, 6]]
+for n_pcpl in range(len(plot_pc)):
+    plot_pc2 = plot_pc[n_pcpl]
+    plt.figure()
+    #plt.subplot(1,2,2);
+    for n_bt in plot_patches: #num_bouts
+        plt.plot(comp_out3d[:plot_T, n_bt, plot_pc2[0]-1], comp_out3d[:plot_T, n_bt, plot_pc2[1]-1])
+    plt.title('PCA components'); plt.xlabel('PC%d' % plot_pc2[0]); plt.ylabel('PC%d' % plot_pc2[1])
+
+
+
+idx1 = np.linspace(0, T-trial_len, round(T/trial_len)).astype(int)
+
+idx2 = idx1[0:25]
+
+n_bt  = 0
+
+plt.figure()
+plt.plot(comp_out3d[:T, n_bt, 0], comp_out3d[:T, n_bt, 1])
+plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
+plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
+
+plot_T = 800
+idx3 = np.linspace(0, plot_T-trial_len, round(plot_T/trial_len)).astype(int)
+
+plt.figure()
+plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 1])
+plt.plot(comp_out3d[idx3, n_bt, 0], comp_out3d[idx3, n_bt, 1], 'o')
+plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
+plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
+
+#%%
 # plt.close('all')
 
 w_in = np.asarray(rnn.i2h.weight.data)
