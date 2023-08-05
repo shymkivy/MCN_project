@@ -1,3 +1,5 @@
+
+
 # -*- coding: utf-8 -*-
 """
 Created on Sun Apr  2 22:47:28 2023
@@ -345,6 +347,7 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
     # initialize 
     #rnn_out['loss'] = np.zeros((num_samp, num_rep))
     rnn_out['loss'] = []
+    rnn_out['loss_by_tt'] = []
     #rnn_out['rates'] = np.zeros((hidden_size, T, num_rep, num_samp))
     #rnn_out['outputs'] = np.zeros((output_size, T, num_rep, num_samp))
 
@@ -358,7 +361,7 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
         
         # get sample
         
-        trials_train_oddball_freq, trials_train_oddball_ctx = f_gen_oddball_seq(params['oddball_stim'], params['train_trials_in_sample'], params['dd_frac'], params['train_batch_size'], 1)
+        trials_train_oddball_freq, trials_train_oddball_ctx = f_gen_oddball_seq(params['oddball_stim'], params['oddball_stim'], params['train_trials_in_sample'], params['dd_frac'], params['train_batch_size'], 1)
 
         input_train_oddball, _ = f_gen_input_output_from_seq(trials_train_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
         _, output_train_oddball_ctx = f_gen_input_output_from_seq(trials_train_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
@@ -374,41 +377,29 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
             
             target_ctx2 = (torch.argmax(target_ctx, dim =2) * torch.ones(T, batch_size).to(params['device'])).long()
             
-            if loss_strat == 1:
-                output_ctx3 = output_ctx.permute((1, 2, 0))
-                target_ctx3 = target_ctx2.permute((1, 0))
-                
-                loss2 = loss(output_ctx3, target_ctx3)
-            
-            elif loss_strat == 2:
-                # probably equivalent to first
-                target_ctx3 = target_ctx2.reshape((T*batch_size))
-                output_ctx3 = output_ctx.reshape((T*batch_size, output_size))
-                #output_ctx2 = output_ctx.permute((1, 2, 0))
-    
-                loss2 = loss(output_ctx3, target_ctx3)
-            else:
-                # computes separately and sums after
-                loss4 = []
-                for n_bt in range(batch_size):
-                    target_ctx3 = target_ctx2[:,n_bt]
-                    output_ctx3 = output_ctx[:,n_bt,:]
-                    loss3 = loss(output_ctx3, target_ctx3)
-                    loss4.append(loss3)
-                
-                loss2 = sum(loss4)/batch_size
-            
-            
-            
+            loss2 = f_RNN_trial_ctx_get_loss(output_ctx, target_ctx2, loss, loss_strat)
+
             # for nnnlosss
             #output_sm = rnn.softmax(output)        
             #loss2 = loss(output_sm.T, target2.long())
             
             loss2.backward() # retain_graph=True
             optimizer.step()
+            
+            loss_deet = np.zeros((3));
+            for n_targ in range(3):
+                idx1 = target_ctx2 == n_targ
+                target_ctx5 = target_ctx2[idx1]
+                output_ctx5 = output_ctx[idx1]
+                
+                loss3 = loss(output_ctx5, target_ctx5)
+                
+                loss_deet[n_targ] = loss3.item()
+                
 
             #rnn_out['loss'][n_samp, n_rep] = loss2.item()
             rnn_out['loss'].append(loss2.item())
+            rnn_out['loss_by_tt'].append(loss_deet)
             
             rnn_out['rates'] = rate.detach().cpu().numpy()
             rnn_out['input'] = input_sig.detach().cpu().numpy()
@@ -421,14 +412,12 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
                     rate_start = rnn.init_rate()
                 else:
                     rate_start = rate[:,-1].detach()
-                    
-                # Compute the running loss every 10 steps
-                if ((n_rep) % 10) == 0:
-                    print('sample %d, rep %d, Loss %0.3f, Time %0.1fs' % (n_samp, n_rep, loss2.item(), time.time() - start_time))
+                rep_tag = ', rep %d' % n_rep
             else:
-                # Compute the running loss every 10 steps
-                if ((n_rep) % 10) == 0:
-                    print('sample %d, Loss %0.3f, Time %0.1fs' % (n_samp, loss2.item(), time.time() - start_time))
+                rep_tag = ''
+                    
+            if ((n_rep) % 10) == 0:
+                print('sample %d%s, Loss %0.3f, Time %0.1fs; loss by tt (isi,r,d) = (%.2f, %.2f, %.2f)' % (n_samp, rep_tag, loss2.item(), time.time() - start_time, loss_deet[0], loss_deet[1], loss_deet[2]))
 
     print('Done')
     
@@ -464,6 +453,34 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
         plt.title('loss')
     
     return rnn_out   
+
+def f_RNN_trial_ctx_get_loss(output_ctx, target_ctx2, loss, loss_strat):
+    if loss_strat == 1:
+        output_ctx3 = output_ctx.permute((1, 2, 0))
+        target_ctx3 = target_ctx2.permute((1, 0))
+        
+        loss2 = loss(output_ctx3, target_ctx3)
+    
+    elif loss_strat == 2:
+        # probably equivalent to first
+        output_ctx3 = output_ctx.reshape((T*batch_size, output_size))
+        target_ctx3 = target_ctx2.reshape((T*batch_size))
+        
+        #output_ctx2 = output_ctx.permute((1, 2, 0))
+
+        loss2 = loss(output_ctx3, target_ctx3)
+    else:
+        # computes separately and sums after
+        loss4 = []
+        for n_bt in range(batch_size):
+            output_ctx3 = output_ctx[:,n_bt,:]
+            target_ctx3 = target_ctx2[:,n_bt]
+            loss3 = loss(output_ctx3, target_ctx3)
+            loss4.append(loss3)
+        
+        loss2 = sum(loss4)/batch_size
+        
+    return loss2
 
 #%%
 

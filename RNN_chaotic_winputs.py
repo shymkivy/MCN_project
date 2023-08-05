@@ -40,9 +40,9 @@ from datetime import datetime
 
 #%% params
 compute_loss = 1
-train_RNN = 0
-save_RNN = 0
-load_RNN = 1
+train_RNN = 1
+save_RNN = 1
+load_RNN = 0
 plot_deets = 1
 
 #%% input params
@@ -52,16 +52,16 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           
           'stim_duration':                  0.5,
           'isi_duration':                   0.5,
-          'num_freq_stim':                  10,
+          'num_freq_stim':                  50,
           'num_ctx':                        2,
-          'oddball_stim':                   np.arange(10)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
+          'oddball_stim':                   np.arange(50)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
           'dd_frac':                        0.1,
           'dt':                             0.05,
           
-          'train_batch_size':               64,
+          'train_batch_size':               200,
           'train_trials_in_sample':         20,
           'train_num_samples_freq':         1000,
-          'train_num_samples_ctx':          40000,
+          'train_num_samples_ctx':          60000,
 
           'train_repeats_per_samp':         1,
           'train_reinit_rate':              0,
@@ -75,7 +75,7 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'hidden_size':                    25,            # number of RNN neurons
           'g':                              1,  # 1            # recurrent connection strength 
           'tau':                            0.5,
-          'learning_rate':                  0.002,           # 0.005
+          'learning_rate':                  0.001,           # 0.005
           'activation':                     'ReLU',             # ReLU tanh
           'normalize_input':                False,
           
@@ -89,10 +89,13 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
 
 now1 = datetime.now()
 
-name_tag = '%s_%dtrainsamp_%dneurons_%s_%dtrials_%dstim_%dbatch_%.4flr_%d_%d_%d_%dh_%dm' % (params['train_type'], 
-            params['train_num_samples_ctx'], params['hidden_size'], params['activation'], params['train_trials_in_sample'], params['num_freq_stim'], 
-            params['train_batch_size'], params['learning_rate'],
-            now1.year, now1.month, now1.day, now1.hour, now1.minute)
+name_tag1 = '%s_%dtrainsamp_%dneurons_%s_%dtrials_%dstim' % (params['train_type'], 
+            params['train_num_samples_ctx'], params['hidden_size'], params['activation'], params['train_trials_in_sample'], params['num_freq_stim'])
+
+name_tag2 = '%dbatch_%.4flr_%d_%d_%d_%dh_%dm' % (params['train_batch_size'], params['learning_rate'],
+             now1.year, now1.month, now1.day, now1.hour, now1.minute)
+
+name_tag  = name_tag1 + '_' + name_tag2
 
 #%%
 
@@ -198,17 +201,37 @@ if train_RNN:
     loss_x_sm = np.arange(len(loss_train_cont_sm))+sm_bin/2 #/(trial_len)
     loss_x_raw = np.arange(len(loss_train)) #/(trial_len)
     
+    loss_by_tt = np.array(train_out['loss_by_tt'])
+    loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
+    loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
+    loss_by_tt_sm2 = np.convolve(loss_by_tt[:,2], kernel, mode='valid')
     
-    plt.figure()
-    plt.semilogy(loss_x_raw, loss_train)
-    plt.semilogy(loss_x_sm, loss_train_cont_sm)
+    fig1 = plt.figure()
+    plt.semilogy(loss_x_raw, loss_train, 'lightgray')
+    plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
     plt.legend(('train', 'train smoothed'))
     plt.xlabel('iterations')
     plt.ylabel('loss')
-    plt.title(name_tag)
-
-
-
+    plt.title('train loss\n%s\n%s' % (name_tag1, name_tag2))
+    
+    
+    fig2 = plt.figure()
+    plt.semilogy(loss_x_raw, loss_train, 'lightgray')
+    plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'lightblue')
+    plt.semilogy(loss_x_raw, loss_by_tt[:,2], 'pink')
+    
+    plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
+    plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'blue')
+    plt.semilogy(loss_x_sm, loss_by_tt_sm2, 'red')
+    plt.legend(('all sm', 'red sm', 'dd sm', 'all', 'red', 'dd'))
+    plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
+    
+    fig3 = plt.figure()
+    plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgray')
+    plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'gray')
+    plt.legend(('isi raw', 'isi sm'))
+    plt.title('isi loss\n%s\n%s' % (name_tag1, name_tag2))
+    
 # f_plot_rates(rates_all[:,:, 1], 10)
  #%%
 if save_RNN and train_RNN:
@@ -217,9 +240,9 @@ if save_RNN and train_RNN:
     np.save(path1 + '/RNN_data/' + fname_RNN_save + '_params.npy', params) 
     np.save(path1 + '/RNN_data/' + fname_RNN_save + '_train_out.npy', train_out) 
     
-    plt.savefig(path1 + '/RNN_data/' + fname_RNN_save + '_fig.png', dpi=1200)
-    
-
+    fig1.savefig(path1 + '/RNN_data/' + fname_RNN_save + '_fig1.png', dpi=1200)
+    fig2.savefig(path1 + '/RNN_data/' + fname_RNN_save + '_fig2.png', dpi=1200)
+    fig3.savefig(path1 + '/RNN_data/' + fname_RNN_save + '_fig3.png', dpi=1200)
 
 
 #%% gen test data
@@ -485,6 +508,8 @@ plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
 plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
 
 #%%
+
+#%% plt.close('all')
 
 f_plot_rates_only(test_oddball_ctx, 'ctx', num_plot_batches = 1, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = 1000, plot_extra = 0)
 
