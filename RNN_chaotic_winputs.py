@@ -40,9 +40,9 @@ from datetime import datetime
 
 #%% params
 compute_loss = 1
-train_RNN = 1
-save_RNN = 1
-load_RNN = 0
+train_RNN = 0
+save_RNN = 0
+load_RNN = 1
 plot_deets = 1
 
 #%% input params
@@ -52,16 +52,16 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           
           'stim_duration':                  0.5,
           'isi_duration':                   0.5,
-          'num_freq_stim':                  50,
+          'num_freq_stim':                  10,
           'num_ctx':                        2,
-          'oddball_stim':                   np.arange(50)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
+          'oddball_stim':                   np.arange(10)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
           'dd_frac':                        0.1,
           'dt':                             0.05,
           
-          'train_batch_size':               200,
+          'train_batch_size':               100,
           'train_trials_in_sample':         20,
           'train_num_samples_freq':         1000,
-          'train_num_samples_ctx':          60000,
+          'train_num_samples_ctx':          80000,
 
           'train_repeats_per_samp':         1,
           'train_reinit_rate':              0,
@@ -101,7 +101,7 @@ name_tag  = name_tag1 + '_' + name_tag2
 
 #fname_RNN_load = 'test_20k_std3'
 #fname_RNN_load = '50k_20stim_std3';
-fname_RNN_load = 'oddball2_30000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0020lr_2023_7_15_14h_42m_RNN'
+fname_RNN_load = 'oddball2_40000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0020lr_2023_7_17_9h_24m_RNN'
 
 #fname_RNN_save = 'test_50k_std4'
 #fname_RNN_save = '50k_20stim_std3'
@@ -223,12 +223,12 @@ if train_RNN:
     plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
     plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'blue')
     plt.semilogy(loss_x_sm, loss_by_tt_sm2, 'red')
-    plt.legend(('all sm', 'red sm', 'dd sm', 'all', 'red', 'dd'))
+    plt.legend(('all', 'red', 'dd', 'all sm', 'red sm', 'dd sm'))
     plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
     
     fig3 = plt.figure()
-    plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgray')
-    plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'gray')
+    plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
+    plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
     plt.legend(('isi raw', 'isi sm'))
     plt.title('isi loss\n%s\n%s' % (name_tag1, name_tag2))
     
@@ -253,7 +253,7 @@ input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont
 
 
 # test oddball trials
-trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq(params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['test_batch_size'])
+trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq([5], params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['test_batch_size'], can_be_same = True)
 
 input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
 _, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
@@ -306,14 +306,12 @@ loss_ctx.cpu()
 #%% test
 test_cont_freq = f_RNN_test(rnn, loss_freq, input_test_cont, output_test_cont, params, paradigm='freq')
 
-#%% test oddball
 test_oddball_freq = f_RNN_test(rnn, loss_freq, input_test_oddball, output_test_oddball_freq, params, paradigm='freq')
 
 test_oddball_ctx = f_RNN_test(rnn, loss_ctx, input_test_oddball, output_test_oddball_ctx, params, paradigm='ctx')
 
 
 #%% test
-
 
 input_test_cont2 = input_test_cont.reshape((8000*100, 1, 50), order = 'F')
 output_test_cont2 = output_test_cont.reshape((8000*100, 1, 11), order = 'F')
@@ -507,7 +505,6 @@ plt.plot(comp_out3d[idx3, n_bt, 0], comp_out3d[idx3, n_bt, 1], 'o')
 plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
 plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
 
-#%%
 
 #%% plt.close('all')
 
@@ -517,6 +514,7 @@ rates = test_oddball_ctx['rates']
 
 start_val = 2000
 
+trial_len = (params['stim_duration'] + params['isi_duration']) / params['dt']
 
 rates2 = rates[start_val:,:,:]
 
@@ -535,37 +533,37 @@ rates_mean = np.mean(rates3n2d, axis=0)
 rates3n2dn = rates3n2d - rates_mean;
 
 
-
-# pca = PCA();
-# pca.fit(rates3n2dn)
-# proj_data = pca.fit_transform(rates3n2d)
-# #V2 = pca.components_
-# #US = pca.fit_transform(rates3n2dn)
-
-
-U, S, V = linalg.svd(rates3n2dn, full_matrices=False)
-#data_back = np.dot(U * S, V)
-#US = U*S
-proj_data = U*S
-
+if 0:
+    pca = PCA();
+    pca.fit(rates3n2dn)
+    proj_data = pca.fit_transform(rates3n2d)
+    #V2 = pca.components_
+    #US = pca.fit_transform(rates3n2dn)
+    exp_var = pca.explained_variance_ratio_
+else:
+    U, S, V = linalg.svd(rates3n2dn, full_matrices=False)
+    #data_back = np.dot(U * S, V)
+    #US = U*S
+    proj_data = U*S
+    Ssq = S*S
+    exp_var = Ssq / np.sum(Ssq)
 
 
 comp_out3d = np.reshape(proj_data, (T, num_bouts, num_cells), order = 'F')
 
 
-
 plt.figure()
 #plt.subplot(1,2,1);
-plt.plot(pca.explained_variance_ratio_, 'o-')
+plt.plot(exp_var, 'o-')
 plt.ylabel('fraction')
 plt.title('Explained Variance'); plt.xlabel('component')
 
 
-plot_patches = range(20)#[0, 1, 5]
+plot_patches = range(30)#[0, 1, 5]
 
 plot_T = 500; #800
 
-plot_pc = [[1, 2], [3, 4], [5, 6]]
+plot_pc = [[1, 4], [2, 3], [5, 6]]
 for n_pcpl in range(len(plot_pc)):
     plot_pc2 = plot_pc[n_pcpl]
     plt.figure()
@@ -595,6 +593,95 @@ plt.plot(comp_out3d[:plot_T, n_bt, 0], comp_out3d[:plot_T, n_bt, 1])
 plt.plot(comp_out3d[idx3, n_bt, 0], comp_out3d[idx3, n_bt, 1], 'o')
 plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
 plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
+
+
+#%% analyze distances const dd/red
+# plt.close('all')
+
+variab_tr_idx = 0;   # 0 = dd 1 = red
+plot_tr_idx = 0;
+
+rates = test_oddball_ctx['rates'] #(8000, 100, 25)
+
+num_t, num_run, num_cells = rates.shape
+num_tr, num_run = trials_test_oddball_freq.shape # (400, 100)
+
+trial_len = round((params['stim_duration'] + params['isi_duration']) / params['dt'])
+
+rates4d = np.reshape(rates, (num_tr, trial_len, num_run, num_cells))
+
+rates4d_cut = rates4d[10:,:,:,:]
+num_tr2 = num_tr - 10
+
+trials_test_oddball_ctx_cut = trials_test_oddball_ctx[10:,:]
+
+
+trial_ave_rd = np.zeros((2, trial_len, num_run, num_cells))
+
+for n_run in range(num_run):
+    idx1 = trials_test_oddball_ctx_cut[:,n_run] == 1
+    trial_ave_rd[0,:,n_run,:] = np.mean(rates4d_cut[idx1,:,n_run,:], axis=0)
+    
+    idx1 = trials_test_oddball_ctx_cut[:,n_run] == 2
+    trial_ave_rd[1,:,n_run,:] = np.mean(rates4d_cut[idx1,:,n_run,:], axis=0)
+
+tr_mmn_rd = np.zeros((num_run, 2))
+for n_run in range(num_run):
+    uq = np.unique(trials_test_oddball_freq[:, n_run])
+    counts_uq = np.zeros((2))
+    if len(uq)>1:
+        for n_uq in range(2):
+            counts_uq[n_uq] = np.sum(trials_test_oddball_freq[:, n_run] == uq[n_uq])
+        if counts_uq[0] > counts_uq[1]:
+            tr_mmn_rd[n_run, 0] = uq[0]
+            tr_mmn_rd[n_run, 1] = uq[1]
+        else:
+            tr_mmn_rd[n_run, 0] = uq[1]
+            tr_mmn_rd[n_run, 1] = uq[0]
+    else:
+        tr_mmn_rd[n_run, 0] = uq[0]
+        tr_mmn_rd[n_run, 1] = uq[0]
+            
+
+cur_tr = 5
+idx_cur = tr_mmn_rd[:,variab_tr_idx] == cur_tr
+base_resp = np.mean(trial_ave_rd[plot_tr_idx,:,idx_cur,:], axis=0)
+base_resp1d = np.reshape(base_resp, (trial_len*num_cells))
+
+
+dist_all = np.zeros((10))
+dist_all_cos = np.zeros((10))
+
+for n_tr in range(10):
+    idx1 = tr_mmn_rd[:,variab_tr_idx] == (n_tr+1)
+    temp1 = np.mean(trial_ave_rd[plot_tr_idx,:,idx1,:], axis=0)
+    temp1_1d = np.reshape(temp1, (trial_len*num_cells))
+    
+    dist_all[n_tr] = pdist([base_resp1d,temp1_1d], metric='euclidean')
+    
+    dist_all_cos[n_tr] = pdist([base_resp1d,temp1_1d], metric='cosine')
+
+plt.figure()
+plt.plot(np.arange(10)+1, dist_all)
+plt.ylabel('euclidean dist')
+if variab_tr_idx:
+    plt.title('const red, var dd; ref tr = %d' % cur_tr)
+    plt.xlabel('dd stim')
+else:
+    plt.title('const dd, var red; ref tr = %d' % cur_tr)
+    plt.xlabel('red stim')
+
+plt.figure()
+plt.plot(np.arange(10)+1, dist_all_cos)
+plt.ylabel('cosine dist')
+plt.xlabel('red stim')
+if variab_tr_idx:
+    plt.title('const red, var dd; ref tr = %d' % cur_tr)
+    plt.xlabel('dd stim')
+else:
+    plt.title('const dd, var red; ref tr = %d' % cur_tr)
+    plt.xlabel('red stim')
+
 
 
 #%%

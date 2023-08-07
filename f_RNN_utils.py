@@ -144,6 +144,9 @@ def f_gen_cont_seq(num_stim, num_trials, batch_size = 1, num_samples = 1):
 
 def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, num_samples = 1, can_be_same = False):
     
+    dev_stim2 = np.asarray(dev_stim)
+    red_stim2 = np.asarray(red_stim)
+    
     trials_oddball_freq = np.zeros((num_trials, batch_size* num_samples)).astype(int)
     trials_oddball_ctx = np.zeros((num_trials, batch_size* num_samples)).astype(int)
     
@@ -156,13 +159,13 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, n
         idx_dd2 = idx_dd[:, n_samp]
          
         if can_be_same:
-            stim_red = np.random.choice(red_stim, size=1)
-            stim_dev = np.random.choice(dev_stim, size=1)
-        elif dev_stim.shape[0]>1 or red_stim.shape[0]>1:
+            stim_red = np.random.choice(red_stim2, size=1)
+            stim_dev = np.random.choice(dev_stim2, size=1)
+        elif dev_stim2.shape[0]>1 or red_stim2.shape[0]>1:
             is_same=1
             while is_same:
-                stim_red = np.random.choice(red_stim, size=1)
-                stim_dev = np.random.choice(dev_stim, size=1)
+                stim_red = np.random.choice(red_stim2, size=1)
+                stim_dev = np.random.choice(dev_stim2, size=1)
                 if stim_dev != stim_red:
                     is_same = 0
         
