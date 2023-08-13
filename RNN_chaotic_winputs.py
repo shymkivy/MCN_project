@@ -6,9 +6,15 @@ Created on Thu Aug 19 15:33:58 2021
 """
 
 import sys
+import os
 
-#path1 = 'C:/Users/yuriy/Desktop/stuff/RNN_stuff/'
-path1 = 'C:/Users/ys2605/Desktop/stuff/RNN_stuff/'
+path2 = ['C:/Users/yuriy/Desktop/stuff/RNN_stuff/',
+         'C:/Users/ys2605/Desktop/stuff/RNN_stuff/',
+         'C:/Users/shymk/Desktop/stuff/RNN_stuff/']
+
+for path3 in path2:
+    if os.path.isdir(path3):
+        path1 = path3;
 
 #sys.path.append('C:\\Users\\ys2605\\Desktop\\stuff\\mesto\\');
 #sys.path.append('/Users/ys2605/Desktop/stuff/RNN_stuff/RNN_scripts');
