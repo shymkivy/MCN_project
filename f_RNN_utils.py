@@ -6,7 +6,10 @@ Created on Sun Apr 30 14:08:27 2023
 """
 
 import numpy as np
+
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
+from matplotlib import colors
    
 from scipy import signal
     
@@ -142,7 +145,7 @@ def f_gen_cont_seq(num_stim, num_trials, batch_size = 1, num_samples = 1):
     
     return trials_out
 
-def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, num_samples = 1, can_be_same = False):
+def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, num_samples = 1, can_be_same = False, can_have_no_dd = False):
     
     dev_stim2 = np.asarray(dev_stim)
     red_stim2 = np.asarray(red_stim)
@@ -153,6 +156,22 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, n
     
     # set dd trials (coin flip)
     idx_dd = np.less_equal(np.random.random((num_trials, batch_size * num_samples)), dd_frac)
+    
+    if not can_have_no_dd:
+        num_dd = np.sum(idx_dd, axis=0)
+        no_dd_idx = num_dd == 0
+        num_no_dd = np.sum(num_dd == 0)
+        while num_no_dd:
+            new_idx_dd = np.less_equal(np.random.random((num_trials, num_no_dd)), dd_frac)
+            
+            idx_dd[:, no_dd_idx] = new_idx_dd
+            
+            num_dd = np.sum(idx_dd, axis=0)
+            
+            no_dd_idx = num_dd == 0
+            
+            num_no_dd = np.sum(num_dd == 0)
+
 
     for n_samp in range(num_samples*batch_size):
 
@@ -251,6 +270,128 @@ def f_plot_rates3(rates, num_cells_plot = 999999):
     plt.ylabel('cells')
     plt.xlabel('time')
     
+#%%
+
+def f_plot_examle_inputs(input_plot, output_plot, params, num_plot = 5):
+    # (T, trials, input_size)
+
+    T, num_batch, input_size = input_plot.shape
+    
+    _, _, output_size = output_plot.shape
+    
+    batch_idx = np.random.choice(num_batch, num_plot)
+    
+    for n_bt in range(num_plot):
+        
+        input_temp = input_plot[:,batch_idx[n_bt],:]
+        output_temp = output_plot[:,batch_idx[n_bt],:]
+        
+        spec2 = gridspec.GridSpec(ncols=1, nrows=2, height_ratios=[1, 1])
+        plt.figure()
+        ax1 = plt.subplot(spec2[0])
+        ax1.imshow(input_temp.T, aspect="auto")
+        plt.title('inputs; %d stim; %d intups; std=%.1f; batch %d' % (params['test_num_freq_stim'], input_size, params['stim_t_std'], batch_idx[n_bt]))
+        plt.subplot(spec2[1], sharex=ax1)
+        plt.imshow(output_temp.T, aspect="auto")
+        plt.title('outputs')
+        
+        spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])
+        plt.figure()
+        ax1 = plt.subplot(spec3[0])
+        ax1.plot(input_temp.std(axis=0))
+        plt.title('inputs std %d inputs; batch %d' % (params['test_num_freq_stim'], batch_idx[n_bt]))
+        plt.subplot(spec3[1], sharex=ax1)
+        plt.plot(input_temp.mean(axis=0))
+        plt.title('inputs mean')
+        plt.subplot(spec3[2], sharex=ax1)
+        plt.plot(input_temp.max(axis=0))
+        plt.title('inputs max')
+
+        plt.figure()
+        plt.plot(np.mean(input_temp, axis=1))
+        plt.title('mean spectrogram across time; batch %d' % batch_idx[n_bt])
+        plt.xlabel('inputs')
+        plt.ylabel('mean power')
+
+
+#%%
+
+def f_plot_train_loss(train_out, name_tag1, name_tag2):
+    sm_bin = 50#round(1/params['dt'])*50;
+    #trial_len = out_temp_all.shape[1]
+    kernel = np.ones(sm_bin)/sm_bin
+
+    loss_train = np.asarray(train_out['loss'])
+    #loss_train = np.asarray(train_out_cont['loss']).T.flatten()
+    loss_train_cont_sm = np.convolve(loss_train, kernel, mode='valid')
+    loss_x_sm = np.arange(len(loss_train_cont_sm))+sm_bin/2 #/(trial_len)
+    loss_x_raw = np.arange(len(loss_train)) #/(trial_len)
+
+    loss_by_tt = np.array(train_out['loss_by_tt'])
+    loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
+    loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
+    loss_by_tt_sm2 = np.convolve(loss_by_tt[:,2], kernel, mode='valid')
+
+    fig1 = plt.figure()
+    plt.semilogy(loss_x_raw, loss_train, 'lightgray')
+    plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
+    plt.legend(('train', 'train smoothed'))
+    plt.xlabel('iterations')
+    plt.ylabel('loss')
+    plt.title('train loss\n%s\n%s' % (name_tag1, name_tag2))
+
+
+    fig2 = plt.figure()
+    plt.semilogy(loss_x_raw, loss_train, 'lightgray')
+    plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'lightblue')
+    plt.semilogy(loss_x_raw, loss_by_tt[:,2], 'pink')
+
+    plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
+    plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'blue')
+    plt.semilogy(loss_x_sm, loss_by_tt_sm2, 'red')
+    plt.legend(('all', 'red', 'dd', 'all sm', 'red sm', 'dd sm'))
+    plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
+
+    fig3 = plt.figure()
+    plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
+    plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
+    plt.legend(('isi raw', 'isi sm'))
+    plt.title('isi loss\n%s\n%s' % (name_tag1, name_tag2))
+#%%
+
+def f_plot_train_test_loss(train_out, test_out_cont, test_out_ob, name_tag1, name_tag2):
+    sm_bin = 50#round(1/params['dt'])*50;
+    #trial_len = out_temp_all.shape[1]
+    kernel = np.ones(sm_bin)/sm_bin
+
+    loss_train = np.asarray(train_out['loss'])# .T.flatten()
+    loss_train_cont_sm = np.convolve(loss_train, kernel, mode='valid')
+    loss_x = np.arange(len(loss_train_cont_sm)) + sm_bin/2 #/(trial_len)
+    loss_x_raw = np.arange(len(loss_train)) #/(trial_len)
+
+    loss_test_cont = np.asarray(test_out_cont['loss'])
+    loss_test_cont_sm = np.convolve(loss_test_cont, kernel, mode='valid')
+    loss_x_test_raw = np.arange(len(loss_test_cont))
+    loss_x_test = np.arange(len(loss_test_cont_sm))  + sm_bin/2#/(trial_len)
+
+    loss_test_ob = np.asarray(test_out_ob['loss'])
+    loss_test_ob_sm = np.convolve(loss_test_ob, kernel, mode='valid')
+    loss_x_test_ob_raw = np.arange(len(loss_test_ob))
+    loss_x_test_ob = np.arange(len(loss_test_ob_sm))  + sm_bin/2#/(trial_len)
+
+
+    plt.figure()
+    plt.semilogy(loss_x_raw, loss_train, 'lightblue')
+    plt.semilogy(loss_x, loss_train_cont_sm, 'darkblue')
+    plt.semilogy(loss_x_test_raw, loss_test_cont, 'lightgreen')
+    plt.semilogy(loss_x_test, loss_test_cont_sm, 'darkgreen')
+    plt.semilogy(loss_x_test_ob_raw, loss_test_ob, 'pink')
+    plt.semilogy(loss_x_test_ob, loss_test_ob_sm, 'darkred')
+    plt.legend(('train', 'train sm', 'test cont', 'test cont sm', 'test oddball', 'test oddball dm'))
+    plt.xlabel('trials')
+    plt.ylabel('loss')
+    plt.title(name_tag1)
+    plt.title('loss\n%s\n%s' % (name_tag1, name_tag2))
 
 #%%
 

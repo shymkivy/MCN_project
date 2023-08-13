@@ -38,7 +38,7 @@ def f_plot_rates(rnn_data, input_sig, target, title_tag):
     
     rates_all = rnn_data['rates']
     
-    outputs_all = rnn_data['outputs']
+    outputs_all = rnn_data['output']
     if 'lossT' in rnn_data.keys():
         loss_all = rnn_data['lossT']
     else:
