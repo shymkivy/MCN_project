@@ -195,9 +195,9 @@ def f_plot_rates_only(rnn_data, title_tag = '', num_plot_batches = 1, num_plot_c
     for n_bt in range(num_plot_batches2):
         bt = plot_batches[n_bt]
         
-        #rates3 = rates2[:,bt,:]
+        rates3 = rates2[:,bt,:]
         
-        rates3 = rates[:,bt,:]
+        #rates3 = rates[:,bt,:]
         
         if preprocess:
             rates3n = rates3 - means1[bt,:]

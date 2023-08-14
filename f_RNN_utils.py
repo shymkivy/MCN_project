@@ -153,6 +153,8 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, n
     trials_oddball_freq = np.zeros((num_trials, batch_size* num_samples)).astype(int)
     trials_oddball_ctx = np.zeros((num_trials, batch_size* num_samples)).astype(int)
     
+    red_dd_freq = np.zeros((2, batch_size* num_samples)).astype(int)
+    
     
     # set dd trials (coin flip)
     idx_dd = np.less_equal(np.random.random((num_trials, batch_size * num_samples)), dd_frac)
@@ -172,21 +174,28 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, n
             
             num_no_dd = np.sum(num_dd == 0)
 
-
     for n_samp in range(num_samples*batch_size):
 
         idx_dd2 = idx_dd[:, n_samp]
-         
+        
+        
         if can_be_same:
             stim_red = np.random.choice(red_stim2, size=1)
             stim_dev = np.random.choice(dev_stim2, size=1)
-        elif dev_stim2.shape[0]>1 or red_stim2.shape[0]>1:
-            is_same=1
-            while is_same:
+        else:
+            if dev_stim2.shape[0]>1 or red_stim2.shape[0]>1:
+                is_same=1
+                while is_same:
+                    stim_red = np.random.choice(red_stim2, size=1)
+                    stim_dev = np.random.choice(dev_stim2, size=1)
+                    if stim_dev != stim_red:
+                        is_same = 0
+            else:
                 stim_red = np.random.choice(red_stim2, size=1)
                 stim_dev = np.random.choice(dev_stim2, size=1)
-                if stim_dev != stim_red:
-                    is_same = 0
+        
+        red_dd_freq[0,n_samp] = stim_red
+        red_dd_freq[1,n_samp] = stim_dev
         
         trials_oddball_freq[idx_dd2, n_samp] = stim_dev
         trials_oddball_freq[~idx_dd2, n_samp] = stim_red
@@ -196,12 +205,13 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, n
         
     trials_oddball_freq2 = trials_oddball_freq.reshape((num_trials, batch_size, num_samples), order='F')
     trials_oddball_ctx2 = trials_oddball_ctx.reshape((num_trials, batch_size, num_samples), order='F')
+    red_dd_freq2 = red_dd_freq.reshape((2, batch_size, num_samples), order='F')
     
     if num_samples == 1:
         trials_oddball_freq2 = trials_oddball_freq2[:,:,0]
         trials_oddball_ctx2 = trials_oddball_ctx2[:,:,0]
-        
-    return trials_oddball_freq2, trials_oddball_ctx2
+    
+    return trials_oddball_freq2, trials_oddball_ctx2, red_dd_freq2
 
 #%%
 
