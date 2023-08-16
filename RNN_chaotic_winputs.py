@@ -46,7 +46,7 @@ import skimage.io
 from datetime import datetime
 
 #%% params
-load_RNN = 1
+load_RNN = 0
 plot_deets = 1
 
 #%% input params
@@ -57,7 +57,7 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'stim_duration':                  0.5,
           'isi_duration':                   0.5,
           'num_freq_stim':                  50,
-          'num_ctx':                        2,
+          'num_ctx':                        1,
           'oddball_stim':                   np.arange(50)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
           'dd_frac':                        0.1,
           'dt':                             0.05,
@@ -65,8 +65,8 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'train_batch_size':               100,
           'train_trials_in_sample':         20,
           'train_num_samples_freq':         1000,
-          'train_num_samples_ctx':          20000,
-          'train_loss_weights':             [0.05, 0.05, 0.9], # isi, red, dd [1e-5, 1e-5, 1]
+          'train_num_samples_ctx':          80000,
+          'train_loss_weights':              [0.05, 0.95], # isi, red, dd [1e-5, 1e-5, 1] [0.05, 0.05, 0.9], [0.05, 0.95]  [1/.5, 1/.45, 1/0.05]
 
           'train_repeats_per_samp':         1,
           'train_reinit_rate':              0,
@@ -94,7 +94,7 @@ now1 = datetime.now()
 
 save_tag = ''
 
-name_tag1 = '%s_%s_%dtrainsamp_%dneurons_%s_%dtrials_%dstim' % (save_tag, params['train_type'], 
+name_tag1 = '%s%s_%dctx_%dtrainsamp_%dneurons_%s_%dtrials_%dstim' % (save_tag, params['train_type'], params['num_ctx'],
             params['train_num_samples_ctx'], params['hidden_size'], params['activation'], params['train_trials_in_sample'], params['num_freq_stim'])
 
 name_tag2 = '%dbatch_%.4flr_%d_%d_%d_%dh_%dm' % (params['train_batch_size'], params['learning_rate'],
@@ -123,10 +123,12 @@ if load_RNN:
 
 # generate stim templates
 
+
 stim_templates = {}
 stim_templates['freq_input'], stim_templates['freq_output'] = f_gen_stim_output_templates(params)
-stim_templates['ctx_output'] = stim_templates['freq_output'][:3,:,:3]
 
+stim_templates['ctx_output'] = stim_templates['freq_output'][:params['num_ctx']+1,:,:params['num_ctx']+1]
+    
 trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'])
 
 # shape (seq_len, batch_size, input_size/output_size, num_samples)
@@ -161,8 +163,15 @@ if 'train_loss_weights' not in params.keys():
     params['train_loss_weights'] = [0.1, 0.1, 0.9]
 
 #loss = nn.NLLLoss()
+
 loss_freq = nn.CrossEntropyLoss()
-loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor(params['train_loss_weights']).to(params['device']))  #1e-10
+
+loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor(params['train_loss_weights']).to(params['device']))
+
+# if params['num_ctx'] > 1:
+#     loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor(params['train_loss_weights']).to(params['device']))  #1e-10
+# else:
+#     loss_ctx = nn.BCELoss(weight = torch.tensor(params['train_loss_weights']).to(params['device']))
 
 train_out = {}     # initialize outputs, so they are saved when process breaks
 
@@ -204,7 +213,7 @@ if load_RNN:
 
 #%%
 #plt.close('all')
-f_plot_train_loss(train_out, name_tag1, name_tag2)
+figs = f_plot_train_loss(train_out, name_tag1, name_tag2)
     
 # f_plot_rates(rates_all[:,:, 1], 10)
 #%%
@@ -214,9 +223,9 @@ if not load_RNN:
     np.save(path1 + '/RNN_data/' + fname_RNN_save + '_params.npy', params) 
     np.save(path1 + '/RNN_data/' + fname_RNN_save + '_train_out.npy', train_out) 
     
-    fig1.savefig(path1 + '/RNN_data/' + fname_RNN_save + '_fig1.png', dpi=1200)
-    fig2.savefig(path1 + '/RNN_data/' + fname_RNN_save + '_fig2.png', dpi=1200)
-    fig3.savefig(path1 + '/RNN_data/' + fname_RNN_save + '_fig3.png', dpi=1200)
+    for key1 in figs.keys():
+        figs[key1].savefig(path1 + '/RNN_data/' + fname_RNN_save + '_' + key1 + '.png', dpi=1200)
+
 
 #%%
 

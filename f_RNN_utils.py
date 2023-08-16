@@ -337,36 +337,64 @@ def f_plot_train_loss(train_out, name_tag1, name_tag2):
     loss_x_sm = np.arange(len(loss_train_cont_sm))+sm_bin/2 #/(trial_len)
     loss_x_raw = np.arange(len(loss_train)) #/(trial_len)
 
-    loss_by_tt = np.array(train_out['loss_by_tt'])
-    loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
-    loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
-    loss_by_tt_sm2 = np.convolve(loss_by_tt[:,2], kernel, mode='valid')
-
     fig1 = plt.figure()
     plt.semilogy(loss_x_raw, loss_train, 'lightgray')
     plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
     plt.legend(('train', 'train smoothed'))
     plt.xlabel('iterations')
     plt.ylabel('loss')
-    plt.title('train loss\n%s\n%s' % (name_tag1, name_tag2))
+    plt.title('train loss\n%s\n%s' % (name_tag1, name_tag2))    
 
+    loss_by_tt = np.array(train_out['loss_by_tt'])
+    num_ctx = loss_by_tt.shape[1]
+    
+    figs = {'fig1':     fig1}
+    
+    if num_ctx == 3:
+        loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
+        loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
+        loss_by_tt_sm2 = np.convolve(loss_by_tt[:,2], kernel, mode='valid')
+        
+        fig2 = plt.figure()
+        plt.semilogy(loss_x_raw, loss_train, 'lightgray')
+        plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'lightblue')
+        plt.semilogy(loss_x_raw, loss_by_tt[:,2], 'pink')
+    
+        plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
+        plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'blue')
+        plt.semilogy(loss_x_sm, loss_by_tt_sm2, 'red')
+        plt.legend(('all', 'red', 'dd', 'all sm', 'red sm', 'dd sm'))
+        plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
+    
+        fig3 = plt.figure()
+        plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
+        plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
+        plt.legend(('isi raw', 'isi sm'))
+        plt.title('isi loss\n%s\n%s' % (name_tag1, name_tag2))
+        
+        figs['fig2'] = fig2
+        figs['fig3'] = fig3
+        
+    elif num_ctx == 2:
+        loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
+        loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
 
-    fig2 = plt.figure()
-    plt.semilogy(loss_x_raw, loss_train, 'lightgray')
-    plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'lightblue')
-    plt.semilogy(loss_x_raw, loss_by_tt[:,2], 'pink')
-
-    plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
-    plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'blue')
-    plt.semilogy(loss_x_sm, loss_by_tt_sm2, 'red')
-    plt.legend(('all', 'red', 'dd', 'all sm', 'red sm', 'dd sm'))
-    plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
-
-    fig3 = plt.figure()
-    plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
-    plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
-    plt.legend(('isi raw', 'isi sm'))
-    plt.title('isi loss\n%s\n%s' % (name_tag1, name_tag2))
+        fig2 = plt.figure()
+        plt.semilogy(loss_x_raw, loss_train, 'lightgray')
+        plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
+        plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'pink')
+        
+        plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
+        plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
+        plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'red')
+        plt.legend(('all', 'non-dd', 'dd', 'all sm', 'non-dd sm', 'dd sm'))
+        plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
+        
+        figs['fig2'] = fig2
+    
+    
+    
+    return figs
 #%%
 
 def f_plot_train_test_loss(train_out, test_out_cont, test_out_ob, name_tag1, name_tag2):
