@@ -361,7 +361,7 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
         
         # get sample
         
-        trials_train_oddball_freq, trials_train_oddball_ctx = f_gen_oddball_seq(params['oddball_stim'], params['oddball_stim'], params['train_trials_in_sample'], params['dd_frac'], params['train_batch_size'], 1)
+        trials_train_oddball_freq, trials_train_oddball_ctx, _ = f_gen_oddball_seq(params['oddball_stim'], params['oddball_stim'], params['train_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['train_batch_size'], 1)
 
         input_train_oddball, _ = f_gen_input_output_from_seq(trials_train_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
         _, output_train_oddball_ctx = f_gen_input_output_from_seq(trials_train_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
@@ -386,8 +386,8 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
             loss2.backward() # retain_graph=True
             optimizer.step()
             
-            loss_deet = np.zeros((3));
-            for n_targ in range(3):
+            loss_deet = np.zeros((params['num_ctx']+1));
+            for n_targ in range(params['num_ctx']+1):
                 idx1 = target_ctx2 == n_targ
                 target_ctx5 = target_ctx2[idx1]
                 output_ctx5 = output_ctx[idx1]
@@ -415,9 +415,14 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
                 rep_tag = ', rep %d' % n_rep
             else:
                 rep_tag = ''
-                    
+            if params['num_ctx'] == 1:
+                ctx_tag = '(non-d,d) = (%.2f, %.2f)' % (loss_deet[0], loss_deet[1])
+            elif params['num_ctx'] == 2:
+                ctx_tag = '(isi,r,d) = (%.2f, %.2f, %.2f)' % (loss_deet[0], loss_deet[1], loss_deet[2])
+            
             if ((n_rep) % 10) == 0:
-                print('sample %d%s, Loss %0.3f, Time %0.1fs; loss by tt (isi,r,d) = (%.2f, %.2f, %.2f)' % (n_samp, rep_tag, loss2.item(), time.time() - start_time, loss_deet[0], loss_deet[1], loss_deet[2]))
+                
+                print('sample %d%s, Loss %0.3f, Time %0.1fs; loss by tt %s' % (n_samp, rep_tag, loss2.item(), time.time() - start_time, ctx_tag))
 
     print('Done')
     

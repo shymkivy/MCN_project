@@ -145,13 +145,15 @@ def f_gen_cont_seq(num_stim, num_trials, batch_size = 1, num_samples = 1):
     
     return trials_out
 
-def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, num_samples = 1, can_be_same = False, can_have_no_dd = False):
+def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, num_ctx, batch_size = 1, num_samples = 1, can_be_same = False, can_have_no_dd = False):
     
     dev_stim2 = np.asarray(dev_stim)
     red_stim2 = np.asarray(red_stim)
     
     trials_oddball_freq = np.zeros((num_trials, batch_size* num_samples)).astype(int)
     trials_oddball_ctx = np.zeros((num_trials, batch_size* num_samples)).astype(int)
+    
+    red_dd_freq = np.zeros((2, batch_size* num_samples)).astype(int)
     
     
     # set dd trials (coin flip)
@@ -172,21 +174,28 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, n
             
             num_no_dd = np.sum(num_dd == 0)
 
-
     for n_samp in range(num_samples*batch_size):
 
         idx_dd2 = idx_dd[:, n_samp]
-         
+        
+        
         if can_be_same:
             stim_red = np.random.choice(red_stim2, size=1)
             stim_dev = np.random.choice(dev_stim2, size=1)
-        elif dev_stim2.shape[0]>1 or red_stim2.shape[0]>1:
-            is_same=1
-            while is_same:
+        else:
+            if dev_stim2.shape[0]>1 or red_stim2.shape[0]>1:
+                is_same=1
+                while is_same:
+                    stim_red = np.random.choice(red_stim2, size=1)
+                    stim_dev = np.random.choice(dev_stim2, size=1)
+                    if stim_dev != stim_red:
+                        is_same = 0
+            else:
                 stim_red = np.random.choice(red_stim2, size=1)
                 stim_dev = np.random.choice(dev_stim2, size=1)
-                if stim_dev != stim_red:
-                    is_same = 0
+        
+        red_dd_freq[0,n_samp] = stim_red
+        red_dd_freq[1,n_samp] = stim_dev
         
         trials_oddball_freq[idx_dd2, n_samp] = stim_dev
         trials_oddball_freq[~idx_dd2, n_samp] = stim_red
@@ -196,12 +205,17 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, n
         
     trials_oddball_freq2 = trials_oddball_freq.reshape((num_trials, batch_size, num_samples), order='F')
     trials_oddball_ctx2 = trials_oddball_ctx.reshape((num_trials, batch_size, num_samples), order='F')
+    red_dd_freq2 = red_dd_freq.reshape((2, batch_size, num_samples), order='F')
     
     if num_samples == 1:
         trials_oddball_freq2 = trials_oddball_freq2[:,:,0]
         trials_oddball_ctx2 = trials_oddball_ctx2[:,:,0]
-        
-    return trials_oddball_freq2, trials_oddball_ctx2
+    
+    if num_ctx == 1:
+        trials_oddball_ctx2 = trials_oddball_ctx2 - 1  
+
+    
+    return trials_oddball_freq2, trials_oddball_ctx2, red_dd_freq2
 
 #%%
 
@@ -213,6 +227,8 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     #input_size = params['input_size']
     #trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'])
     #output_size = params['num_freq_stim'] + 1
+    
+    
     
     input_size, trial_len, _ = stim_templates.shape
     output_size, _, _ = output_templates.shape
@@ -249,7 +265,9 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     if num_samp == 1:
         input_mat_out = input_mat_out[:,:,:,0]
         output_mat_out = output_mat_out[:,:,:,0]
-        
+    
+      
+    
     return input_mat_out, output_mat_out
     
 #%%
@@ -292,7 +310,7 @@ def f_plot_examle_inputs(input_plot, output_plot, params, num_plot = 5):
         ax1.imshow(input_temp.T, aspect="auto")
         plt.title('inputs; %d stim; %d intups; std=%.1f; batch %d' % (params['test_num_freq_stim'], input_size, params['stim_t_std'], batch_idx[n_bt]))
         plt.subplot(spec2[1], sharex=ax1)
-        plt.imshow(output_temp.T, aspect="auto")
+        plt.imshow(output_temp.T, aspect="auto", interpolation='none')
         plt.title('outputs')
         
         spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])
@@ -327,36 +345,64 @@ def f_plot_train_loss(train_out, name_tag1, name_tag2):
     loss_x_sm = np.arange(len(loss_train_cont_sm))+sm_bin/2 #/(trial_len)
     loss_x_raw = np.arange(len(loss_train)) #/(trial_len)
 
-    loss_by_tt = np.array(train_out['loss_by_tt'])
-    loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
-    loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
-    loss_by_tt_sm2 = np.convolve(loss_by_tt[:,2], kernel, mode='valid')
-
     fig1 = plt.figure()
     plt.semilogy(loss_x_raw, loss_train, 'lightgray')
     plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
     plt.legend(('train', 'train smoothed'))
     plt.xlabel('iterations')
     plt.ylabel('loss')
-    plt.title('train loss\n%s\n%s' % (name_tag1, name_tag2))
+    plt.title('train loss\n%s\n%s' % (name_tag1, name_tag2))    
 
+    loss_by_tt = np.array(train_out['loss_by_tt'])
+    num_ctx = loss_by_tt.shape[1]
+    
+    figs = {'fig1':     fig1}
+    
+    if num_ctx == 3:
+        loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
+        loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
+        loss_by_tt_sm2 = np.convolve(loss_by_tt[:,2], kernel, mode='valid')
+        
+        fig2 = plt.figure()
+        plt.semilogy(loss_x_raw, loss_train, 'lightgray')
+        plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'lightblue')
+        plt.semilogy(loss_x_raw, loss_by_tt[:,2], 'pink')
+    
+        plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
+        plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'blue')
+        plt.semilogy(loss_x_sm, loss_by_tt_sm2, 'red')
+        plt.legend(('all', 'red', 'dd', 'all sm', 'red sm', 'dd sm'))
+        plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
+    
+        fig3 = plt.figure()
+        plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
+        plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
+        plt.legend(('isi raw', 'isi sm'))
+        plt.title('isi loss\n%s\n%s' % (name_tag1, name_tag2))
+        
+        figs['fig2'] = fig2
+        figs['fig3'] = fig3
+        
+    elif num_ctx == 2:
+        loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
+        loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
 
-    fig2 = plt.figure()
-    plt.semilogy(loss_x_raw, loss_train, 'lightgray')
-    plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'lightblue')
-    plt.semilogy(loss_x_raw, loss_by_tt[:,2], 'pink')
-
-    plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
-    plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'blue')
-    plt.semilogy(loss_x_sm, loss_by_tt_sm2, 'red')
-    plt.legend(('all', 'red', 'dd', 'all sm', 'red sm', 'dd sm'))
-    plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
-
-    fig3 = plt.figure()
-    plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
-    plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
-    plt.legend(('isi raw', 'isi sm'))
-    plt.title('isi loss\n%s\n%s' % (name_tag1, name_tag2))
+        fig2 = plt.figure()
+        plt.semilogy(loss_x_raw, loss_train, 'lightgray')
+        plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
+        plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'pink')
+        
+        plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
+        plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
+        plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'red')
+        plt.legend(('all', 'non-dd', 'dd', 'all sm', 'non-dd sm', 'dd sm'))
+        plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
+        
+        figs['fig2'] = fig2
+    
+    
+    
+    return figs
 #%%
 
 def f_plot_train_test_loss(train_out, test_out_cont, test_out_ob, name_tag1, name_tag2):

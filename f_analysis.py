@@ -110,11 +110,11 @@ def f_plot_rates2(rnn_data, title_tag, num_plot_batches = 1, num_plot_cells = 10
     
     if 'lossT' in rnn_data.keys():
         lossT = rnn_data['lossT']
+        num_sp = 7
+        height_ratios1 = [4, 1, 2, 2, 2, 1, 1]
+    else:
         num_sp = 6
         height_ratios1 = [4, 1, 2, 2, 2, 1]
-    else:
-        num_sp = 5
-        height_ratios1 = [4, 1, 2, 2, 2]
     
     
     spec = gridspec.GridSpec(ncols=1, nrows=num_sp, height_ratios=height_ratios1)
@@ -143,15 +143,19 @@ def f_plot_rates2(rnn_data, title_tag, num_plot_batches = 1, num_plot_cells = 10
         plt.title('inputs')
         plt.axis('off')
         plt.subplot(spec[3], sharex=ax1)
-        plt.imshow(target[:,bt,:].T, aspect="auto") # , aspect=100
+        plt.imshow(target[:,bt,:].T, aspect="auto", interpolation='none') # , aspect=100
         plt.title('target')
         plt.axis('off')
         plt.subplot(spec[4], sharex=ax1)
-        plt.imshow(output[:,bt,:].T, aspect="auto") # , aspect=100
+        plt.imshow(output[:,bt,:].T, aspect="auto", interpolation='none') # , aspect=100
         plt.title('outputs')
         plt.axis('off')
+        plt.subplot(spec[5], sharex=ax1)
+        plt.plot(output[:,bt,:]) # , aspect=100
+        plt.title('outputs 2')
+        plt.axis('off')
         if 'lossT' in rnn_data.keys():
-            plt.subplot(spec[5], sharex=ax1)
+            plt.subplot(spec[6], sharex=ax1)
             plt.plot(lossT[:,bt]) # , aspect=100
             plt.title('loss')
             plt.axis('off')
@@ -195,9 +199,9 @@ def f_plot_rates_only(rnn_data, title_tag = '', num_plot_batches = 1, num_plot_c
     for n_bt in range(num_plot_batches2):
         bt = plot_batches[n_bt]
         
-        #rates3 = rates2[:,bt,:]
+        rates3 = rates2[:,bt,:]
         
-        rates3 = rates[:,bt,:]
+        #rates3 = rates[:,bt,:]
         
         if preprocess:
             rates3n = rates3 - means1[bt,:]
