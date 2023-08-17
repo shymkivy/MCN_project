@@ -111,7 +111,6 @@ fname_RNN_load = 'oddball2_80000trainsamp_25neurons_ReLU_20trials_50stim_100batc
 #fname_RNN_save = '50k_20stim_std3'
 fname_RNN_save = name_tag
 
-
 #%%
 if load_RNN:
     params = np.load(path1 + '/RNN_data/' + fname_RNN_load[:-4] + '_params.npy', allow_pickle=True).item()
