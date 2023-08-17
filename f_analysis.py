@@ -72,7 +72,7 @@ def f_plot_rates(rnn_data, input_sig, target, title_tag):
         shift = n_plt*2.5    
         ax1.plot(rates_all[plot_cells[n_plt],:]+shift)
     plt.title(title_tag + ' example cells' + name_tag)
-    plt.axis('off')
+    #plt.axis('off')
    # plt.xticks([])
     plt.subplot(spec[1], sharex=ax1)
     plt.plot(np.mean(rates_all, axis=0))
@@ -97,7 +97,7 @@ def f_plot_rates(rnn_data, input_sig, target, title_tag):
 
 #%%
 
-def f_plot_rates2(rnn_data, title_tag, num_plot_batches = 1, num_plot_cells = 10):
+def f_plot_rates2(rnn_data, title_tag, num_plot_batches = 1, num_plot_cells = 10, randomize=True):
     
     rates = rnn_data['rates']
     input_sig = rnn_data['input']
@@ -119,7 +119,10 @@ def f_plot_rates2(rnn_data, title_tag, num_plot_batches = 1, num_plot_cells = 10
     
     spec = gridspec.GridSpec(ncols=1, nrows=num_sp, height_ratios=height_ratios1)
     
-    plot_batches = np.sort(sample(range(batch_size), num_plot_batches2))
+    if randomize:
+        plot_batches = np.sort(sample(range(batch_size), num_plot_batches2))
+    else:
+        plot_batches = range(batch_size)[:num_plot_batches2]
     
     for n_bt in range(num_plot_batches2):
         bt = plot_batches[n_bt]
@@ -132,11 +135,11 @@ def f_plot_rates2(rnn_data, title_tag, num_plot_batches = 1, num_plot_cells = 10
             shift = n_plt*2.5    
             ax1.plot(rates[:,bt,plot_cells[n_plt]]+shift)
         plt.title('%s; batch %d; example cells' % (title_tag, bt))
-        plt.axis('off')
-       # plt.xticks([])
+        # plt.axis('off')
+        #plt.xticks([])
         plt.subplot(spec[1], sharex=ax1)
         plt.plot(np.mean(rates[:,bt,:], axis=1))
-        plt.title('population average')
+        plt.ylabel('population average')
         plt.axis('off')
         plt.subplot(spec[2], sharex=ax1)
         plt.imshow(input_sig[:,bt,:].T, aspect="auto") #   , aspect=10
