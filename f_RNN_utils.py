@@ -145,7 +145,7 @@ def f_gen_cont_seq(num_stim, num_trials, batch_size = 1, num_samples = 1):
     
     return trials_out
 
-def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, num_samples = 1, can_be_same = False, can_have_no_dd = False):
+def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, num_ctx, batch_size = 1, num_samples = 1, can_be_same = False, can_have_no_dd = False):
     
     dev_stim2 = np.asarray(dev_stim)
     red_stim2 = np.asarray(red_stim)
@@ -211,6 +211,10 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, n
         trials_oddball_freq2 = trials_oddball_freq2[:,:,0]
         trials_oddball_ctx2 = trials_oddball_ctx2[:,:,0]
     
+    if num_ctx == 1:
+        trials_oddball_ctx2 = trials_oddball_ctx2 - 1  
+
+    
     return trials_oddball_freq2, trials_oddball_ctx2, red_dd_freq2
 
 #%%
@@ -223,6 +227,8 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     #input_size = params['input_size']
     #trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'])
     #output_size = params['num_freq_stim'] + 1
+    
+    
     
     input_size, trial_len, _ = stim_templates.shape
     output_size, _, _ = output_templates.shape
@@ -259,7 +265,9 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     if num_samp == 1:
         input_mat_out = input_mat_out[:,:,:,0]
         output_mat_out = output_mat_out[:,:,:,0]
-        
+    
+      
+    
     return input_mat_out, output_mat_out
     
 #%%
@@ -302,7 +310,7 @@ def f_plot_examle_inputs(input_plot, output_plot, params, num_plot = 5):
         ax1.imshow(input_temp.T, aspect="auto")
         plt.title('inputs; %d stim; %d intups; std=%.1f; batch %d' % (params['test_num_freq_stim'], input_size, params['stim_t_std'], batch_idx[n_bt]))
         plt.subplot(spec2[1], sharex=ax1)
-        plt.imshow(output_temp.T, aspect="auto")
+        plt.imshow(output_temp.T, aspect="auto", interpolation='none')
         plt.title('outputs')
         
         spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])

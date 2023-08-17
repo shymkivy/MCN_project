@@ -46,7 +46,7 @@ import skimage.io
 from datetime import datetime
 
 #%% params
-load_RNN = 0
+load_RNN = 1
 plot_deets = 1
 
 #%% input params
@@ -106,7 +106,10 @@ name_tag  = name_tag1 + '_' + name_tag2
 
 #fname_RNN_load = 'test_20k_std3'
 #fname_RNN_load = '50k_20stim_std3';
-fname_RNN_load = 'oddball2_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_5_13h_59m_RNN'
+#fname_RNN_load = 'oddball2_60000trainsamp_25neurons_ReLU_20trials_50stim_200batch_0.0010lr_2023_8_4_17h_41m_RNN'
+#fname_RNN_load = 'oddball2_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_5_13h_59m_RNN'
+#fname_RNN_load = 'oddball2_1ctx_20000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_14_13h_42m_RNN'
+fname_RNN_load = 'oddball2_2ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_15_13h_23m_RNN'
 
 #fname_RNN_save = 'test_50k_std4'
 #fname_RNN_save = '50k_20stim_std3'
@@ -142,7 +145,7 @@ trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'
 
 
 # train oddball trials 
-#trials_train_oddball_freq, trials_train_oddball_ctx = f_gen_oddball_seq(params['oddball_stim'], params['train_trials_in_sample'], params['dd_frac'], params['train_batch_size'], params['train_num_samples_ctx'])
+#trials_train_oddball_freq, trials_train_oddball_ctx = f_gen_oddball_seq(params['oddball_stim'], params['train_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['train_batch_size'], params['train_num_samples_ctx'])
 
 #input_train_oddball, output_train_oddball_freq = f_gen_input_output_from_seq(trials_train_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
 #_, output_train_oddball_ctx = f_gen_input_output_from_seq(trials_train_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
@@ -240,10 +243,11 @@ loss_ctx.cpu()
 # test control trials
 #trials_test_cont = f_gen_cont_seq(params['num_freq_stim'], params['test_trials_in_sample'], params['test_batch_size'], 1)
 
-num_test_freq = 10
+if 'test_num_freq_stim' not in params.keys():
+    params['test_num_freq_stim'] = 10
 
-test_cont_stim = np.round(np.linspace(0, params['num_freq_stim']-1, num_test_freq)).astype(int)
-trials_test_cont_idx = f_gen_cont_seq(num_test_freq, params['test_trials_in_sample'], params['test_batch_size'], 1)-1
+test_cont_stim = np.round(np.linspace(1, params['num_freq_stim'], params['test_num_freq_stim'])).astype(int)
+trials_test_cont_idx = f_gen_cont_seq(params['test_num_freq_stim'], params['test_trials_in_sample'], params['test_batch_size'], 1)-1
 trials_test_cont = test_cont_stim[trials_test_cont_idx]
 
 input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_templates['freq_input'], stim_templates['freq_output'], params)
@@ -264,13 +268,13 @@ f_plot_examle_inputs(input_test_cont, output_test_cont, params, 1)
 if 'test_num_freq_stim' not in params.keys():
     params['test_num_freq_stim'] = 10
 
-dev_stim = (np.arange(0,params['test_num_freq_stim'])/params['test_num_freq_stim']*params['num_freq_stim']).astype(int)
-red_stim = (np.arange(0,params['test_num_freq_stim'])/params['test_num_freq_stim']*params['num_freq_stim']).astype(int)
+dev_stim = ((np.arange(params['test_num_freq_stim'])+1)/params['test_num_freq_stim']*params['num_freq_stim']).astype(int)
+red_stim = ((np.arange(params['test_num_freq_stim'])+1)/params['test_num_freq_stim']*params['num_freq_stim']).astype(int)
 
 
 # test oddball trials
-trials_test_oddball_freq, trials_test_oddball_ctx, _ = f_gen_oddball_seq(dev_stim, red_stim, params['test_trials_in_sample'], params['dd_frac'], params['test_batch_size'], can_be_same = False)
-#trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq([5], params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['test_batch_size'], can_be_same = True)
+trials_test_oddball_freq, trials_test_oddball_ctx, _ = f_gen_oddball_seq(dev_stim, red_stim, params['test_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['test_batch_size'], can_be_same = False)
+#trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq([5], params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['test_batch_size'], can_be_same = True)
 
 input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
 _, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
@@ -449,16 +453,22 @@ if 0:
     num_batch = 20
     num_stim_use = 10
     
-    dev_stim = np.asarray([20]).astype(int)
+    num_runs_plot = 5
+    plot_trials = 30; #800
+    color_ctx = 0;  # 0 = red; 1 = dd
+    mark_red = 0
+    mark_dd = 1
+    
+    #dev_stim = np.asarray([20]).astype(int)
     #dev_stim = np.asarray([round(params['num_freq_stim']/2)]).astype(int)
-    #dev_stim = (np.arange(0,num_stim_use)/num_stim_use*params['num_freq_stim']).astype(int)
-    #red_stim = np.asarray([10]).astype(int)
+    dev_stim = ((np.arange(num_stim_use)+1)/num_stim_use*params['num_freq_stim']).astype(int)
+    #red_stim = np.asarray([24]).astype(int)
     #red_stim = np.asarray([round(params['num_freq_stim']/2)]).astype(int)
-    red_stim = (np.arange(0,num_stim_use)/num_stim_use*params['num_freq_stim']).astype(int)
+    red_stim = ((np.arange(num_stim_use)+1)/num_stim_use*params['num_freq_stim']).astype(int)
     
     # test oddball trials
-    trials_test_oddball_freq, trials_test_oddball_ctx, red_dd_seq = f_gen_oddball_seq(dev_stim, red_stim, num_trials, params['dd_frac'], num_batch, can_be_same = False)
-    #trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq([5], params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['test_batch_size'], can_be_same = True)
+    trials_test_oddball_freq, trials_test_oddball_ctx, red_dd_seq = f_gen_oddball_seq(dev_stim, red_stim, num_trials, params['dd_frac'], params['num_ctx'], num_batch, can_be_same = False)
+    #trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq([5], params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['test_batch_size'], can_be_same = True)
 
     input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
     _, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
@@ -466,6 +476,8 @@ if 0:
     # run test data
     #test_oddball_freq = f_RNN_test(rnn, loss_freq, input_test_oddball, output_test_oddball_freq, params, paradigm='freq')
     test_oddball_ctx = f_RNN_test(rnn, loss_ctx, input_test_oddball, output_test_oddball_ctx, params, paradigm='ctx')
+    
+    #f_plot_rates2(test_oddball_ctx, 'test_oddball_ctx', num_plot_batches = 5)
     
     #
     
@@ -526,10 +538,10 @@ if 0:
     plt.title('Explained Variance'); plt.xlabel('component')
     
     
-    plot_patches = range(3)#[0, 1, 5]
+    plot_patches = range(num_runs_plot)#[0, 1, 5]
     
-    plot_trials = 20; #800
-    plot_t = plot_trials*trial_len
+    
+    plot_T = plot_trials*trial_len
     
     plot_pc = [[1, 2], [3, 4], [5, 6], [7, 8]]
     for n_pcpl in range(len(plot_pc)):
@@ -539,15 +551,24 @@ if 0:
         for n_bt in plot_patches: #num_bouts
             temp_ob_tr = trials_test_oddball_ctx2[:,n_bt]
             
-            red_idx = temp_ob_tr == 1
-            dd_idx = temp_ob_tr == 2
+            if params['num_ctx'] == 1:
+                dd_idx = temp_ob_tr == 1
+            elif params['num_ctx'] == 2:
+                red_idx = temp_ob_tr == 1
+                dd_idx = temp_ob_tr == 2
             
             temp_comp4d = comp_out4d[:,:plot_trials,n_bt,:]
             
-            plt.plot(comp_out3d[:plot_T, n_bt, plot_pc2[0]-1], comp_out3d[:plot_T, n_bt, plot_pc2[1]-1], color=colors1[red_dd_seq[0,n_bt],:])
+            plt.plot(comp_out3d[:plot_T, n_bt, plot_pc2[0]-1], comp_out3d[:plot_T, n_bt, plot_pc2[1]-1], color=colors1[red_dd_seq[color_ctx,n_bt]-1,:])
             
-            plt.plot(temp_comp4d[:,:,plot_pc2[0]-1][:,red_idx[:plot_trials]], temp_comp4d[:,:,plot_pc2[1]-1][:,red_idx[:plot_trials]], '--b')
-            plt.plot(temp_comp4d[:,:,plot_pc2[0]-1][:,dd_idx[:plot_trials]], temp_comp4d[:,:,plot_pc2[1]-1][:,dd_idx[:plot_trials]], '--r')
+            if mark_red:
+                if params['num_ctx'] == 2:
+                    plt.plot(temp_comp4d[4:15,:,plot_pc2[0]-1][:,red_idx[:plot_trials]], temp_comp4d[4:15,:,plot_pc2[1]-1][:,red_idx[:plot_trials]], '.b')
+                    plt.plot(temp_comp4d[4,:,plot_pc2[0]-1][red_idx[:plot_trials]], temp_comp4d[4,:,plot_pc2[1]-1][red_idx[:plot_trials]], 'ob')
+            
+            if mark_dd: 
+                plt.plot(temp_comp4d[4:15,:,plot_pc2[0]-1][:,dd_idx[:plot_trials]], temp_comp4d[4:15,:,plot_pc2[1]-1][:,dd_idx[:plot_trials]], '.r')
+                plt.plot(temp_comp4d[4,:,plot_pc2[0]-1][dd_idx[:plot_trials]], temp_comp4d[4,:,plot_pc2[1]-1][dd_idx[:plot_trials]], 'or')
             
 
             
@@ -588,14 +609,23 @@ if 0:
     num_trials = 400
     num_batch = 200
     num_stim_use = 20
-    dev_stim = (np.arange(0,num_stim_use)/num_stim_use*params['num_freq_stim']).astype(int)
+    
+    
+    #dev_stim = (np.arange(0,num_stim_use)/num_stim_use*params['num_freq_stim']).astype(int)
+    #red_stim = np.asarray([24]).astype(int)
+    
+    #dev_stim = np.asarray([20]).astype(int)
+    #dev_stim = np.asarray([round(params['num_freq_stim']/2)]).astype(int)
+    dev_stim = ((np.arange(num_stim_use)+1)/num_stim_use*params['num_freq_stim']).astype(int)
     red_stim = np.asarray([24]).astype(int)
+    #red_stim = np.asarray([round(params['num_freq_stim']/2)]).astype(int)
+    #red_stim = ((np.arange(num_stim_use)+1)/num_stim_use*params['num_freq_stim']).astype(int)
     
     var_seq = dev_stim
 
     # test oddball trials
-    trials_test_oddball_freq, trials_test_oddball_ctx, red_dd_seq = f_gen_oddball_seq(dev_stim, red_stim, num_trials, params['dd_frac'], num_batch, can_be_same = False)
-    #trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq([5], params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['test_batch_size'], can_be_same = True)
+    trials_test_oddball_freq, trials_test_oddball_ctx, red_dd_seq = f_gen_oddball_seq(dev_stim, red_stim, num_trials, params['dd_frac'], params['num_ctx'], num_batch, can_be_same = False)
+    #trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq([5], params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['test_batch_size'], can_be_same = True)
 
     input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
     _, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
