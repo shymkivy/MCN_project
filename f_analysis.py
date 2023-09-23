@@ -111,11 +111,17 @@ def f_plot_rates2(rnn_data, title_tag, num_plot_batches = 1, num_plot_cells = 10
     if 'lossT' in rnn_data.keys():
         lossT = rnn_data['lossT']
         num_sp = 7
-        height_ratios1 = [4, 1, 2, 2, 2, 1, 1]
+        height_ratios1 = [4, 1, 2, 2, 2, 8, 8]
     else:
         num_sp = 6
         height_ratios1 = [4, 1, 2, 2, 2, 1]
     
+    
+    if 1:
+        ratesn = rates - np.mean(rates, axis=0)
+        ratesn = ratesn/np.std(ratesn, axis=0)/3
+    else:
+        ratesn = rates
     
     spec = gridspec.GridSpec(ncols=1, nrows=num_sp, height_ratios=height_ratios1)
     
@@ -133,7 +139,7 @@ def f_plot_rates2(rnn_data, title_tag, num_plot_batches = 1, num_plot_cells = 10
         ax1 = plt.subplot(spec[0])
         for n_plt in range(num_plot_cells):  
             shift = n_plt*2.5    
-            ax1.plot(rates[:,bt,plot_cells[n_plt]]+shift)
+            ax1.plot(ratesn[:,bt,plot_cells[n_plt]]+shift)
         plt.title('%s; batch %d; example cells' % (title_tag, bt))
         # plt.axis('off')
         #plt.xticks([])

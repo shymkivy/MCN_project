@@ -36,8 +36,10 @@ import math
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.cluster import AgglomerativeClustering
+from sklearn.manifold import Isomap
 from scipy.cluster.hierarchy import dendrogram, linkage
-from scipy.spatial.distance import pdist, squareform
+from scipy.spatial.distance import pdist, squareform, cdist
+from scipy.sparse import diags
 from scipy import signal
 from scipy import linalg
 from scipy.io import loadmat, savemat
@@ -60,13 +62,13 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'num_ctx':                        1,
           'oddball_stim':                   np.arange(50)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
           'dd_frac':                        0.1,
-          'dt':                             0.05,
+          'dt':                             0.005,
           
           'train_batch_size':               100,
           'train_trials_in_sample':         20,
           'train_num_samples_freq':         1000,
           'train_num_samples_ctx':          80000,
-          'train_loss_weights':              [0.05, 0.95], # isi, red, dd [1e-5, 1e-5, 1] [0.05, 0.05, 0.9], [0.05, 0.95]  [1/.5, 1/.45, 1/0.05]
+          'train_loss_weights':             [0.05, 0.95], # isi, red, dd [1e-5, 1e-5, 1] [0.05, 0.05, 0.9], [0.05, 0.95]  [1/.5, 1/.45, 1/0.05]
 
           'train_repeats_per_samp':         1,
           'train_reinit_rate':              0,
@@ -79,7 +81,7 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'input_size':                     50,
           'hidden_size':                    25,            # number of RNN neurons
           'g':                              1,  # 1            # recurrent connection strength 
-          'tau':                            0.5,
+          'tau':                            .05,
           'learning_rate':                  0.001,           # 0.005
           'activation':                     'ReLU',             # ReLU tanh
           'normalize_input':                False,
@@ -92,32 +94,75 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
 
 now1 = datetime.now()
 
-save_tag = ''
-
-name_tag1 = '%s%s_%dctx_%dtrainsamp_%dneurons_%s_%dtrials_%dstim' % (save_tag, params['train_type'], params['num_ctx'],
-            params['train_num_samples_ctx'], params['hidden_size'], params['activation'], params['train_trials_in_sample'], params['num_freq_stim'])
-
-name_tag2 = '%dbatch_%.4flr_%d_%d_%d_%dh_%dm' % (params['train_batch_size'], params['learning_rate'],
-             now1.year, now1.month, now1.day, now1.hour, now1.minute)
-
-name_tag  = name_tag1 + '_' + name_tag2
+params['train_date'] = now1
 
 #%%
 
 #fname_RNN_load = 'test_20k_std3'
 #fname_RNN_load = '50k_20stim_std3';
-#fname_RNN_load = 'oddball2_60000trainsamp_25neurons_ReLU_20trials_50stim_200batch_0.0010lr_2023_8_4_17h_41m_RNN'
-fname_RNN_load = 'oddball2_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_5_13h_59m_RNN'            # 1 ctx dset, V shaped learning curve, there is dd axis, not bad
-#fname_RNN_load = 'oddball2_1ctx_20000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_14_13h_42m_RNN'
-#fname_RNN_load = 'oddball2_2ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_15_13h_23m_RNN'   # dist not desired
+
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_5_28_13h_15m_RNN'                            # 2 ctx     no train out ;no activation in params (tanh)
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_5_28_22h_32m_RNN'                            # 2 ctx     no activation in params (tanh)
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_5_28_22h_33m_RNN'                            # 2 ctx     no activation in params (tanh)
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_6_5_0h_35m_RNN'                              # 2 ctx     no activation in params (tanh)
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_ReLU_20trials_10stim_64batch_0.0010lr_2023_6_16_11h_6m_RNN'                        # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_ReLU_20trials_10stim_64batch_0.0010lr_2023_6_17_15h_18m_RNN'                       # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_40000train_samp_ReLU_20trials_10stim_64batch_0.0010lr_2023_6_19_12h_12m_RNN'                       # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_40000train_samp_ReLU_20trials_20stim_64batch_0.0010lr_2023_6_20_12h_23m_RNN'                       # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0010lr_2023_6_27_13h_44m_RNN'                       # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0010lr_2023_6_28_14h_22m_RNN'                       # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0010lr_2023_6_28_16h_31m_RNN'                       # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0050lr_2023_6_30_12h_30m_RNN'                       # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0100lr_2023_6_30_15h_11m_RNN'                       # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_20000trainsamp_10neurons_tanh_20trials_10stim_64batch_0.0100lr_2023_7_3_10h_18m_RNN'               # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_20000trainsamp_20neurons_ReLU_20trials_10stim_64batch_0.0050lr_2023_7_9_14h_12m_RNN'               # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_20000trainsamp_20neurons_tanh_20trials_10stim_64batch_0.0050lr_2023_7_13_14h_8m_RNN'               # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_30000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0020lr_2023_7_15_14h_42m_RNN'              # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0010lr_2023_7_15_21h_49m_RNN'              # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0020lr_2023_7_17_9h_24m_RNN'               # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_50stim_64batch_0.0020lr_2023_7_30_21h_33m_RNN'              # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_50stim_64batch_0.0010lr_2023_7_31_13h_14m_RNN'              # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_50stim_200batch_0.0010lr_2023_7_31_16h_10m_RNN'             # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_60000trainsamp_25neurons_ReLU_20trials_50stim_200batch_0.0010lr_2023_8_4_17h_41m_RNN'              # 2 ctx
+#fname_RNN_load = 'oddball2_2ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_5_13h_59m_RNN'              # 2 ctx dset, V shaped learning curve, there is dd axis, not bad
+#fname_RNN_load = 'oddball2_1ctx_20000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_14_13h_42m_RNN'             # high loss.... 1 ctx, but still 2 stepish like learning curce
+#fname_RNN_load = 'oddball2_2ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_15_13h_23m_RNN'             # 2 ctx dist not desired
+#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_16_18h_48m_RNN'             # 1 ctx, exp decay curve, 1 step
+fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.50tau_20trials_50stim_100batch_0.0010lr_2023_9_11_14h_19m_RNN'     # 1 ctx, tau=0.5
+#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.10tau_20trials_50stim_100batch_0.0010lr_2023_9_13_11h_41m_RNN'     # 1 ctx, tau=0.1
+#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_1.00tau_20trials_50stim_100batch_0.0010lr_2023_9_14_11h_58m_RNN'     # 1 ctx, tau=1
+#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_2.00tau_20trials_50stim_100batch_0.0010lr_2023_9_15_12h_18m_RNN'     # 1 ctx, tau=2
+#fname_RNN_load = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_1.00tau_20trials_50stim_100batch_0.0010lr_2023_9_16_13h_10m_RNN'    # 1 ctx, tau=1
+
 
 #fname_RNN_save = 'test_50k_std4'
 #fname_RNN_save = '50k_20stim_std3'
-fname_RNN_save = name_tag
 
 #%%
 if load_RNN:
     params = np.load(path1 + '/RNN_data/' + fname_RNN_load[:-4] + '_params.npy', allow_pickle=True).item()
+
+#%%
+
+if 'train_date' in params.keys():
+    now2 = params['train_date']
+else:
+    now2 = now1
+if 'activation' not in params.keys():
+    params['activation'] = 'tanh'
+        
+
+save_tag = ''
+
+name_tag1 = '%s%s_%dctx_%dtrainsamp_%dneurons_%s_%dtau_%ddt_%dtrials_%dstim' % (save_tag, params['train_type'], params['num_ctx'],
+            params['train_num_samples_ctx'], params['hidden_size'], params['activation'], params['tau']*1000, params['dt']*1000, params['train_trials_in_sample'], params['num_freq_stim'])
+
+name_tag2 = '%dbatch_%.4flr_%d_%d_%d_%dh_%dm' % (params['train_batch_size'], params['learning_rate'],
+             now2.year, now2.month, now2.day, now2.hour, now2.minute)
+
+name_tag  = name_tag1 + '_' + name_tag2
+
+fname_RNN_save = name_tag
 
 #%% generate train data
 
@@ -152,6 +197,9 @@ trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'
 
 #%% initialize RNN 
 
+if 'device' not in params.keys():
+    params['device'] = 'cpu'
+
 output_size = params['num_freq_stim'] + 1
 output_size_ctx = params['num_ctx'] + 1
 hidden_size = params['hidden_size'];
@@ -159,6 +207,10 @@ alpha = params['dt']/params['tau'];
 
 rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, activation=params['activation']).to(params['device'])
 rnn.init_weights(params['g'])
+
+# make version of untrained rnn
+rnn0 = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, activation=params['activation']).to(params['device'])
+rnn0.init_weights(params['g'])
 
 #%%
 if 'train_loss_weights' not in params.keys():
@@ -234,6 +286,8 @@ if not load_RNN:
 params['device'] = 'cpu';
 rnn.cpu()
 
+rnn0.cpu()
+
 loss_freq.cpu()
 loss_ctx.cpu()
 
@@ -251,12 +305,13 @@ trials_test_cont = test_cont_stim[trials_test_cont_idx]
 
 input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_templates['freq_input'], stim_templates['freq_output'], params)
 
-#%% test
-test_cont_freq = f_RNN_test(rnn, loss_freq, input_test_cont, output_test_cont, params, paradigm='freq')
-
 #%%
 # plt.close('all')
 f_plot_examle_inputs(input_test_cont, output_test_cont, params, 1)
+
+
+#%% test
+test_cont_freq = f_RNN_test(rnn, loss_freq, input_test_cont, output_test_cont, params, paradigm='freq')
 
 
 #%%
@@ -278,16 +333,17 @@ trials_test_oddball_freq, trials_test_oddball_ctx, _ = f_gen_oddball_seq(dev_sti
 input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
 _, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
 
+#%%
+# plt.close('all')
+f_plot_examle_inputs(input_test_oddball, output_test_oddball_ctx, params, 5)
+
+f_plot_examle_inputs(input_test_oddball, output_test_oddball_freq, params, 5)
+
 
 #%%
 test_oddball_freq = f_RNN_test(rnn, loss_freq, input_test_oddball, output_test_oddball_freq, params, paradigm='freq')
 
 test_oddball_ctx = f_RNN_test(rnn, loss_ctx, input_test_oddball, output_test_oddball_ctx, params, paradigm='ctx')
-
-#%%
-# plt.close('all')
-f_plot_examle_inputs(input_test_oddball, output_test_oddball_ctx, params, 5)
-
 
 #%%
 # plt.close('all')
@@ -377,7 +433,7 @@ if 0:
     
     norm_method = 0
     
-    start_val = 3000
+    start_val = 0
     
     rates = test_spont['rates']
     
@@ -455,10 +511,10 @@ if 1:
     num_batch = 100
     num_stim_use = 15
     
-    num_runs_plot = 8
-    plot_trials = 100; #800
-    color_ctx = 0;  # 0 = red; 1 = dd
-    mark_red = 1
+    num_runs_plot = 3
+    plot_trials = 30; #800
+    color_ctx = 1;  # 0 = red; 1 = dd
+    mark_red = 0
     mark_dd = 1
     
     dev_stim = np.asarray([24]).astype(int)
@@ -475,25 +531,28 @@ if 1:
     input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
     _, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
 
+    #f_plot_rates2(test_oddball_ctx, 'test_oddball_ctx', num_plot_batches = num_runs_plot, num_plot_cells = 10, randomize=False)
+
     # run test data
     #test_oddball_freq = f_RNN_test(rnn, loss_freq, input_test_oddball, output_test_oddball_freq, params, paradigm='freq')
     test_oddball_ctx = f_RNN_test(rnn, loss_ctx, input_test_oddball, output_test_oddball_ctx, params, paradigm='ctx')
     
-    #f_plot_rates2(test_oddball_ctx, 'test_oddball_ctx', num_plot_batches = num_runs_plot, randomize=False)
+    test0_oddball_ctx = f_RNN_test(rnn0, loss_ctx, input_test_oddball, output_test_oddball_ctx, params, paradigm='ctx')
+    
     
     #
     
-    rates = test_oddball_ctx['rates']
+    rates = test_oddball_ctx['rates'][:,:10,:]
     
     T, num_run, num_cells = rates.shape
     
     num_trials2 = num_trials - num_skip_trials
     
-    rates4d = np.reshape(rates, (trial_len, num_trials, num_batch, num_cells), order = 'F')
+    rates4d = np.reshape(rates, (trial_len, num_trials, num_run, num_cells), order = 'F')
     
     rates4d2 = rates4d[:,num_skip_trials:,:,:]
 
-    rates2 = np.reshape(rates4d2, (trial_len*num_trials2, num_batch, num_cells), order = 'F')
+    rates2 = np.reshape(rates4d2, (trial_len*num_trials2, num_run, num_cells), order = 'F')
     
     trials_test_oddball_ctx2 = trials_test_oddball_ctx[num_skip_trials:,:]
     
@@ -503,7 +562,7 @@ if 1:
     
     T2, _, _ = rates3n.shape
     
-    rates3n2d = np.reshape(rates3n, (T2*num_batch, num_cells), order = 'F')
+    rates3n2d = np.reshape(rates3n, (T2*num_run, num_cells), order = 'F')
     
     # subtract mean 
     if 0:
@@ -527,10 +586,16 @@ if 1:
         proj_data = U*S
         Ssq = S*S
         exp_var = Ssq / np.sum(Ssq)
+
+    comp_out3d = np.reshape(proj_data, (T2, num_run, num_cells), order = 'F')
+    comp_out4d = np.reshape(proj_data, (trial_len, num_trials2, num_run, num_cells), order = 'F')
     
     
-    comp_out3d = np.reshape(proj_data, (T2, num_batch, num_cells), order = 'F')
-    comp_out4d = np.reshape(proj_data, (trial_len, num_trials2, num_batch, num_cells), order = 'F')
+    # isomap
+    
+    # embedding = Isomap(n_components=3, metric='euclidean')
+    # X_transformed = embedding.fit_transform(rates3n2dn)
+    #X_transformed3d = np.reshape(X_transformed, (T2, num_run, 3), order = 'F')
     
     
     plt.figure()
@@ -598,6 +663,69 @@ if 1:
         plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
         plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
 
+#%%
+# plot speed of population trajectory
+if 0:
+    # test oddball trials
+    trials_test_oddball_freq, trials_test_oddball_ctx, red_dd_seq = f_gen_oddball_seq(dev_stim, red_stim, num_trials, params['dd_frac'], params['num_ctx'], num_batch, can_be_same = False)
+    #trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq([5], params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['test_batch_size'], can_be_same = True)
+
+    input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
+    _, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
+
+    # run test data
+    #test_oddball_freq = f_RNN_test(rnn, loss_freq, input_test_oddball, output_test_oddball_freq, params, paradigm='freq')
+    test_oddball_ctx = f_RNN_test(rnn, loss_ctx, input_test_oddball, output_test_oddball_ctx, params, paradigm='ctx')
+    
+    #f_plot_rates2(test_oddball_ctx, 'test_oddball_ctx', num_plot_batches = num_runs_plot, num_plot_cells = 10, randomize=False)
+    
+    rates = test_oddball_ctx['rates']
+    
+    T, num_tr, num_cells = rates.shape
+    
+    n_run = 1
+    
+    dist1 = squareform(pdist(rates[:,n_run,:], metric='euclidean'))
+    dist2 = np.diag(dist1, 1)
+    
+    spec2 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[3, 1, 2])
+    
+    plt.figure()
+    ax1 = plt.subplot(spec2[0])
+    plt.imshow(input_test_oddball[:-1,n_run,:].T, aspect="auto", interpolation='none')
+    ax2 = plt.subplot(spec2[1], sharex=ax1)
+    plt.imshow(output_test_oddball_ctx[:-1,n_run,:].T, aspect="auto", interpolation='none')
+    ax3 = plt.subplot(spec2[2], sharex=ax1)
+    plt.plot(dist2)
+    plt.ylabel('euclidean dist')
+    plt.xlabel('trials')
+    
+    
+    
+
+
+
+
+
+#%%
+
+def f_gen_dset(rnn, dparams, params):
+    
+    
+    
+    
+
+#%%
+
+dparams = {}
+
+dparams['num_trials'] = 400
+dparams['num_batch'] = 100
+dparams['num_skip_trials'] = 100
+dparams['num_dev_stim'] = 1
+dparams['num_red_stim'] = 20
+
+
 
 #%% analyze distances const dd/red
 # plt.close('all')
@@ -605,23 +733,23 @@ if 1:
 if 1:
     num_skip_trials = 100
     
-    variab_tr_idx = 1;   # 1 = dd 0 = red
-    plot_tr_idx = 1;
+    variab_tr_idx = 0;   # 1 = dd 0 = red
+    plot_tr_idx = 0;
     
     num_trials = 400
     num_batch = 100
-    num_stim_use = 20
+    num_stim_use = 1
     
     
     #dev_stim = (np.arange(0,num_stim_use)/num_stim_use*params['num_freq_stim']).astype(int)
     #red_stim = np.asarray([24]).astype(int)
     
-    #dev_stim = np.asarray([24]).astype(int)
+    dev_stim = np.asarray([24]).astype(int)
     #dev_stim = np.asarray([round(params['num_freq_stim']/2)]).astype(int)
-    dev_stim = ((np.arange(num_stim_use)+1)/num_stim_use*params['num_freq_stim']).astype(int)
-    red_stim = np.asarray([24]).astype(int)
+    #dev_stim = ((np.arange(num_stim_use)+1)/num_stim_use*params['num_freq_stim']).astype(int)
+    #red_stim = np.asarray([24]).astype(int)
     #red_stim = np.asarray([round(params['num_freq_stim']/2)]).astype(int)
-    #red_stim = ((np.arange(num_stim_use)+1)/num_stim_use*params['num_freq_stim']).astype(int)
+    red_stim = ((np.arange(num_stim_use)+1)/num_stim_use*params['num_freq_stim']).astype(int)
     
     if variab_tr_idx:
         var_seq = dev_stim

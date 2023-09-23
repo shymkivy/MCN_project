@@ -308,33 +308,34 @@ def f_plot_examle_inputs(input_plot, output_plot, params, num_plot = 5):
         plt.figure()
         ax1 = plt.subplot(spec2[0])
         ax1.imshow(input_temp.T, aspect="auto")
-        plt.title('inputs; %d stim; %d intups; std=%.1f; batch %d' % (params['test_num_freq_stim'], input_size, params['stim_t_std'], batch_idx[n_bt]))
+        plt.title('%d stim; %d intups; std=%.1f; batch %d' % (params['test_num_freq_stim'], input_size, params['stim_t_std'], batch_idx[n_bt]))
+        plt.ylabel('input')
         plt.subplot(spec2[1], sharex=ax1)
         plt.imshow(output_temp.T, aspect="auto", interpolation='none')
-        plt.title('outputs')
+        plt.ylabel('target')
         
-        spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])
-        plt.figure()
-        ax1 = plt.subplot(spec3[0])
-        ax1.plot(input_temp.std(axis=0))
-        plt.title('inputs std %d inputs; batch %d' % (params['test_num_freq_stim'], batch_idx[n_bt]))
-        plt.subplot(spec3[1], sharex=ax1)
-        plt.plot(input_temp.mean(axis=0))
-        plt.title('inputs mean')
-        plt.subplot(spec3[2], sharex=ax1)
-        plt.plot(input_temp.max(axis=0))
-        plt.title('inputs max')
+        # spec3 = gridspec.GridSpec(ncols=1, nrows=3, height_ratios=[1, 1, 1])
+        # plt.figure()
+        # ax1 = plt.subplot(spec3[0])
+        # ax1.plot(input_temp.std(axis=0))
+        # plt.title('inputs std %d inputs; batch %d' % (params['test_num_freq_stim'], batch_idx[n_bt]))
+        # plt.subplot(spec3[1], sharex=ax1)
+        # plt.plot(input_temp.mean(axis=0))
+        # plt.title('inputs mean')
+        # plt.subplot(spec3[2], sharex=ax1)
+        # plt.plot(input_temp.max(axis=0))
+        # plt.title('inputs max')
 
-        plt.figure()
-        plt.plot(np.mean(input_temp, axis=1))
-        plt.title('mean spectrogram across time; batch %d' % batch_idx[n_bt])
-        plt.xlabel('inputs')
-        plt.ylabel('mean power')
+        # plt.figure()
+        # plt.plot(np.mean(input_temp, axis=1))
+        # plt.title('mean spectrogram across time; batch %d' % batch_idx[n_bt])
+        # plt.xlabel('inputs')
+        # plt.ylabel('mean power')
 
 
 #%%
 
-def f_plot_train_loss(train_out, name_tag1, name_tag2):
+def f_plot_train_loss(train_out, name_tag1 = '', name_tag2 = ''):
     sm_bin = 50#round(1/params['dt'])*50;
     #trial_len = out_temp_all.shape[1]
     kernel = np.ones(sm_bin)/sm_bin
@@ -352,55 +353,54 @@ def f_plot_train_loss(train_out, name_tag1, name_tag2):
     plt.xlabel('iterations')
     plt.ylabel('loss')
     plt.title('train loss\n%s\n%s' % (name_tag1, name_tag2))    
-
-    loss_by_tt = np.array(train_out['loss_by_tt'])
-    num_ctx = loss_by_tt.shape[1]
     
     figs = {'fig1':     fig1}
     
-    if num_ctx == 3:
-        loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
-        loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
-        loss_by_tt_sm2 = np.convolve(loss_by_tt[:,2], kernel, mode='valid')
+    if 'loss_by_tt' in train_out.keys():
+        loss_by_tt = np.array(train_out['loss_by_tt'])
+        num_ctx = loss_by_tt.shape[1]
         
-        fig2 = plt.figure()
-        plt.semilogy(loss_x_raw, loss_train, 'lightgray')
-        plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'lightblue')
-        plt.semilogy(loss_x_raw, loss_by_tt[:,2], 'pink')
+        if num_ctx == 3:
+            loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
+            loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
+            loss_by_tt_sm2 = np.convolve(loss_by_tt[:,2], kernel, mode='valid')
+            
+            fig2 = plt.figure()
+            plt.semilogy(loss_x_raw, loss_train, 'lightgray')
+            plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'lightblue')
+            plt.semilogy(loss_x_raw, loss_by_tt[:,2], 'pink')
+        
+            plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
+            plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'blue')
+            plt.semilogy(loss_x_sm, loss_by_tt_sm2, 'red')
+            plt.legend(('all', 'red', 'dd', 'all sm', 'red sm', 'dd sm'))
+            plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
+        
+            fig3 = plt.figure()
+            plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
+            plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
+            plt.legend(('isi raw', 'isi sm'))
+            plt.title('isi loss\n%s\n%s' % (name_tag1, name_tag2))
+            
+            figs['fig2'] = fig2
+            figs['fig3'] = fig3
+            
+        elif num_ctx == 2:
+            loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
+            loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
     
-        plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
-        plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'blue')
-        plt.semilogy(loss_x_sm, loss_by_tt_sm2, 'red')
-        plt.legend(('all', 'red', 'dd', 'all sm', 'red sm', 'dd sm'))
-        plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
-    
-        fig3 = plt.figure()
-        plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
-        plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
-        plt.legend(('isi raw', 'isi sm'))
-        plt.title('isi loss\n%s\n%s' % (name_tag1, name_tag2))
-        
-        figs['fig2'] = fig2
-        figs['fig3'] = fig3
-        
-    elif num_ctx == 2:
-        loss_by_tt_sm0 = np.convolve(loss_by_tt[:,0], kernel, mode='valid')
-        loss_by_tt_sm1 = np.convolve(loss_by_tt[:,1], kernel, mode='valid')
-
-        fig2 = plt.figure()
-        plt.semilogy(loss_x_raw, loss_train, 'lightgray')
-        plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
-        plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'pink')
-        
-        plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
-        plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
-        plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'red')
-        plt.legend(('all', 'non-dd', 'dd', 'all sm', 'non-dd sm', 'dd sm'))
-        plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
-        
-        figs['fig2'] = fig2
-    
-    
+            fig2 = plt.figure()
+            plt.semilogy(loss_x_raw, loss_train, 'lightgray')
+            plt.semilogy(loss_x_raw, loss_by_tt[:,0], 'lightgreen')
+            plt.semilogy(loss_x_raw, loss_by_tt[:,1], 'pink')
+            
+            plt.semilogy(loss_x_sm, loss_train_cont_sm, 'gray')
+            plt.semilogy(loss_x_sm, loss_by_tt_sm0, 'green')
+            plt.semilogy(loss_x_sm, loss_by_tt_sm1, 'red')
+            plt.legend(('all', 'non-dd', 'dd', 'all sm', 'non-dd sm', 'dd sm'))
+            plt.title('train loss deets\n%s\n%s' % (name_tag1, name_tag2))
+            
+            figs['fig2'] = fig2
     
     return figs
 #%%
