@@ -210,6 +210,7 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, num_ctx, batch_si
     if num_samples == 1:
         trials_oddball_freq2 = trials_oddball_freq2[:,:,0]
         trials_oddball_ctx2 = trials_oddball_ctx2[:,:,0]
+        red_dd_freq2 = red_dd_freq2[:,:,0]
     
     if num_ctx == 1:
         trials_oddball_ctx2 = trials_oddball_ctx2 - 1  
