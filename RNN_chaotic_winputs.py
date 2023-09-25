@@ -20,30 +20,33 @@ for path3 in path2:
 #sys.path.append('/Users/ys2605/Desktop/stuff/RNN_stuff/RNN_scripts');
 sys.path.append(path1 + 'RNN_scripts');
 
-from f_analysis import *
-from f_RNN import *
-from f_RNN_chaotic import *
-from f_RNN_utils import *
+
+from f_analysis import f_plot_rates2, f_plot_rates_only # seriation, 
+from f_RNN import f_RNN_trial_ctx_train2, f_RNN_trial_freq_train2, f_RNN_test, f_RNN_test_spont
+from f_RNN_chaotic import RNN_chaotic
+from f_RNN_utils import f_gen_stim_output_templates, f_gen_cont_seq, f_gen_oddball_seq, f_gen_input_output_from_seq, f_plot_examle_inputs, f_plot_train_loss, f_plot_train_test_loss
+
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-from matplotlib import colors
+#from matplotlib import colors
 import matplotlib.cm as cm
-from random import sample, random
-import math
+#from random import sample, random
+import torch
+import torch.nn as nn
 
 from sklearn.decomposition import PCA
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.cluster import AgglomerativeClustering
-from sklearn.manifold import Isomap
-from scipy.cluster.hierarchy import dendrogram, linkage
-from scipy.spatial.distance import pdist, squareform, cdist
-from scipy.sparse import diags
-from scipy import signal
+#from sklearn.metrics.pairwise import cosine_similarity
+#from sklearn.cluster import AgglomerativeClustering
+#from sklearn.manifold import Isomap
+#from scipy.cluster.hierarchy import dendrogram, linkage
+from scipy.spatial.distance import pdist, squareform #, cdist
+#from scipy.sparse import diags
+#from scipy import signal
 from scipy import linalg
-from scipy.io import loadmat, savemat
-import skimage.io
+#from scipy.io import loadmat, savemat
+#import skimage.io
 
 from datetime import datetime
 
@@ -212,6 +215,8 @@ rnn.init_weights(params['g'])
 rnn0 = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, activation=params['activation']).to(params['device'])
 rnn0.init_weights(params['g'])
 
+rnn0c = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, activation=params['activation']).to(params['device'])
+rnn0c.init_weights(params['g'])
 #%%
 if 'train_loss_weights' not in params.keys():
     params['train_loss_weights'] = [0.1, 0.1, 0.9]
@@ -236,26 +241,25 @@ if load_RNN:
 
 #%%
 if not load_RNN:
-    if params['train_type'] == 'standard':
-        train_out = f_RNN_trial_train(rnn, loss, input_train_cont, output_train_cont, params)
-    elif params['train_type'] == 'freq_oddball':
-        train_out = f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train_oddball, output_train_oddball_freq, output_train_oddball_ctx, params)
-    elif params['train_type'] == 'oddball':
-        train_out = f_RNN_trial_ctx_train(rnn, loss_ctx, input_train_oddball, output_train_oddball_ctx, params)
-        
-        #train_cont = f_RNN_trial_ctx_train(rnn, loss, input_train_oddball_freq, output_train_oddball_freq, output_train_oddball_ctx, params)
-    
-    elif params['train_type'] == 'freq2':
-        
-        f_RNN_trial_freq_train2(rnn, loss_freq, stim_templates, params, train_out)
-    
-    elif params['train_type'] == 'oddball2':
+    if params['train_type'] == 'oddball2':
         
         f_RNN_trial_ctx_train2(rnn, loss_ctx, stim_templates, params, train_out)
         
-    
-    else:
-        train_out = f_RNN_linear_train(rnn, loss, input_train_cont, output_train_cont, params)
+    elif params['train_type'] == 'freq2':
+        
+        f_RNN_trial_freq_train2(rnn, loss_freq, stim_templates, params, train_out)
+        
+    # elif params['train_type'] == 'standard':
+    #     train_out = f_RNN_trial_train(rnn, loss, input_train_cont, output_train_cont, params)
+    # elif params['train_type'] == 'freq_oddball':
+    #     train_out = f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train_oddball, output_train_oddball_freq, output_train_oddball_ctx, params)
+    # elif params['train_type'] == 'oddball':
+    #     train_out = f_RNN_trial_ctx_train(rnn, loss_ctx, input_train_oddball, output_train_oddball_ctx, params)
+        
+    #     #train_cont = f_RNN_trial_ctx_train(rnn, loss, input_train_oddball_freq, output_train_oddball_freq, output_train_oddball_ctx, params)
+
+    # else:
+    #     train_out = f_RNN_linear_train(rnn, loss, input_train_cont, output_train_cont, params)
         
 else:
     print('running without training')
@@ -270,7 +274,9 @@ if load_RNN:
 figs = f_plot_train_loss(train_out, name_tag1, name_tag2)
     
 # f_plot_rates(rates_all[:,:, 1], 10)
+
 #%%
+print('pass test')
 if not load_RNN:
     print('Saving RNN %s' % fname_RNN_save)
     torch.save(rnn.state_dict(), path1 + '/RNN_data/' + fname_RNN_save  + '_RNN')
@@ -287,6 +293,8 @@ params['device'] = 'cpu';
 rnn.cpu()
 
 rnn0.cpu()
+
+rnn0c.cpu()
 
 loss_freq.cpu()
 loss_ctx.cpu()
@@ -594,10 +602,114 @@ do_rnn_zero = 1
 dred_subtr_mean = 0
 dred_met = 2
 
+
+
+#%% plot RNN params
+
+
+
+#print(rnn)
+
+wr1 = rnn.h2h.weight.detach().cpu().numpy().flatten()
+wi1 = rnn.i2h.weight.detach().cpu().numpy().flatten()
+wo1 = rnn.h2o_ctx.weight.detach().cpu().numpy().flatten()
+
+br1 = rnn.h2h.bias.detach().cpu().numpy().flatten()
+bi1 = rnn.i2h.bias.detach().cpu().numpy().flatten()
+bo1 = rnn.h2o_ctx.bias.detach().cpu().numpy().flatten()
+
+
+wr0 = rnn0.h2h.weight.detach().cpu().numpy().flatten()
+wi0 = rnn0.i2h.weight.detach().cpu().numpy().flatten()
+wo0 = rnn0.h2o_ctx.weight.detach().cpu().numpy().flatten()
+
+br0 = rnn0.h2h.bias.detach().cpu().numpy().flatten()
+bi0 = rnn0.i2h.bias.detach().cpu().numpy().flatten()
+bo0 = rnn0.h2o_ctx.bias.detach().cpu().numpy().flatten()
+
+
+wr0c = rnn0c.h2h.weight.detach().cpu().numpy().flatten()
+wi0c = rnn0c.i2h.weight.detach().cpu().numpy().flatten()
+wo0c = rnn0c.h2o_ctx.weight.detach().cpu().numpy().flatten()
+
+br0c = rnn0c.h2h.bias.detach().cpu().numpy().flatten()
+bi0c = rnn0c.i2h.bias.detach().cpu().numpy().flatten()
+bo0c = rnn0c.h2o_ctx.bias.detach().cpu().numpy().flatten()
+
+# compensate
+rnn0c.h2h.weight.data = rnn0c.h2h.weight.data/np.std(wr0c)*np.std(wr1)
+rnn0c.i2h.weight.data = rnn0c.i2h.weight.data/np.std(wi0c)*np.std(wi1)
+rnn0c.h2o_ctx.weight.data = rnn0c.h2o_ctx.weight.data/np.std(wo0c)*np.std(wo1)
+
+rnn0c.h2h.bias.data = rnn0c.h2h.bias.data/np.std(br0c)*np.std(br1)
+rnn0c.i2h.bias.data = rnn0c.i2h.bias.data/np.std(bi0c)*np.std(bi1)
+rnn0c.h2o_ctx.bias.data = rnn0c.h2o_ctx.bias.data/np.std(bo0c)*np.std(bo1)
+
+# get again
+wr0c = rnn0c.h2h.weight.detach().cpu().numpy().flatten()
+wi0c = rnn0c.i2h.weight.detach().cpu().numpy().flatten()
+wo0c = rnn0c.h2o_ctx.weight.detach().cpu().numpy().flatten()
+
+br0c = rnn0c.h2h.bias.detach().cpu().numpy().flatten()
+bi0c = rnn0c.i2h.bias.detach().cpu().numpy().flatten()
+bo0c = rnn0c.h2o_ctx.bias.detach().cpu().numpy().flatten()
+
+
+
+alpha1 = 0.3
+density1 = False
+
+plt.figure()
+plt.subplot(311)
+plt.hist(wr1, density=density1, alpha=alpha1)
+plt.hist(wr0, density=density1, alpha=alpha1)
+plt.hist(wr0c, density=density1, alpha=alpha1)
+plt.legend(('trained; std=%.2f' % np.std(wr1), 'untrained; std=%.2f' % np.std(wr0), 'untrained comp; std=%.2f' % np.std(wr0c)))
+plt.title('Recurrent W')
+
+plt.subplot(312)
+plt.hist(wi1, density=density1, alpha=alpha1)
+plt.hist(wi0, density=density1, alpha=alpha1)
+plt.hist(wi0c, density=density1, alpha=alpha1)
+plt.legend(('trained; std=%.2f' % np.std(wi1), 'untrained; std=%.2f' % np.std(wi0), 'untrained comp; std=%.2f' % np.std(wi0c)))
+plt.title('Input W')
+
+plt.subplot(313)
+plt.hist(wo1, density=density1, alpha=alpha1)
+plt.hist(wo0, density=density1, alpha=alpha1)
+plt.hist(wo0c, density=density1, alpha=alpha1)
+plt.legend(('trained; std=%.2f' % np.std(wo1), 'untrained; std=%.2f' % np.std(wo0), 'untrained comp; std=%.2f' % np.std(wo0c)))
+plt.title('Input W')
+
+
+plt.figure()
+plt.subplot(311)
+plt.hist(br1, density=density1, alpha=alpha1)
+plt.hist(br0, density=density1, alpha=alpha1)
+plt.hist(br0c, density=density1, alpha=alpha1)
+plt.legend(('trained; std=%.2f' % np.std(br1), 'untrained; std=%.2f' % np.std(br0), 'untrained comp; std=%.2f' % np.std(br0c)))
+plt.title('Recurrent bias')
+
+plt.subplot(312)
+plt.hist(bi1, density=density1, alpha=alpha1)
+plt.hist(bi0, density=density1, alpha=alpha1)
+plt.hist(bi0c, density=density1, alpha=alpha1)
+plt.legend(('trained; std=%.2f' % np.std(bi1), 'untrained; std=%.2f' % np.std(bi0), 'untrained comp; std=%.2f' % np.std(bi0c)))
+plt.title('Input bias')
+
+plt.subplot(313)
+plt.hist(bo1, density=density1, alpha=alpha1)
+plt.hist(bo0, density=density1, alpha=alpha1)
+plt.hist(bo0c, density=density1, alpha=alpha1)
+plt.legend(('trained; std=%.2f' % np.std(bo1), 'untrained; std=%.2f' % np.std(bo0), 'untrained comp; std=%.2f' % np.std(bo0c)))
+plt.title('Input bias')
+
+
 #%%
 trial_len = round((params['stim_duration'] + params['isi_duration']) / params['dt'])
 num_trials = dparams['num_trials']
 num_trials2 = num_trials - num_skip_trials
+num_run = dparams['num_batch']
 
 ob_data1 = f_gen_dset(rnn, dparams, params, stim_templates, stim_sample='equal')
     
@@ -624,6 +736,8 @@ rates2d_cut = np.reshape(rates_cut, (num_t2*num_run, num_cells), order = 'F')
 
 
 if do_rnn_zero:
+    
+    
     test0_oddball_ctx = f_RNN_test(rnn0, loss_ctx, ob_data1['input_test_oddball'], ob_data1['output_test_oddball_ctx'], params, paradigm='ctx')
     
     rates0 = test0_oddball_ctx['rates'] #(8000, 100, 25)
@@ -643,6 +757,8 @@ if do_rnn_zero:
 
 # plt.figure()
 # plt.plot(rates[:,0,:])
+
+
 
 #%% PCA stuff full data
 
@@ -734,7 +850,7 @@ if 1:
         plt.figure()
         #plt.subplot(1,2,2);
         for n_bt in plot_patches: #num_bouts
-            temp_ob_tr = trials_test_oddball_ctx2[:,n_bt]
+            temp_ob_tr = trials_test_oddball_ctx_cut[:,n_bt]
             
             if params['num_ctx'] == 1:
                 dd_idx = temp_ob_tr == 1
@@ -827,15 +943,18 @@ if 1:
     variab_tr_idx = 0;   # 1 = dd 0 = red
     plot_tr_idx = 0;
     num_stim_use = 1
+    pre_dd1 = 2
+    post_dd1 = 2
     
-       
+    num_tr_ave = pre_dd1 + post_dd1 + 1
+    
     if variab_tr_idx:
         var_seq = ob_data1['dev_stim']
     else:
         var_seq = ob_data1['red_stim']
       
     #
-    temp_ave4d = f_trial_ave_ctx_pad(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = 2, post_dd = 2)
+    temp_ave4d = f_trial_ave_ctx_pad(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = pre_dd1, post_dd = post_dd1)
     
     temp_ave1 = np.reshape(temp_ave4d, (trial_len*num_tr_ave, num_batch, num_cells), order = 'F')
     
@@ -1421,30 +1540,30 @@ plt.plot(w_in[:20,:].T)
 #cs = 1- squareform(flat_dist_met);
 
 
-res_linkage = linkage(w_r, method='average')
+# res_linkage = linkage(w_r, method='average')
 
-N = len(w_r)
-res_ord = seriation(res_linkage,N, N + N -2)
+# N = len(w_r)
+# res_ord = seriation(res_linkage,N, N + N -2)
 
-plt.figure()
-plt.imshow(w_r[res_ord,:][:,res_ord])
-plt.colorbar()
-plt.title('Recurrents')
-plt.xlabel('W recurrent sorted')
-plt.ylabel('W recurrent sorted')
+# plt.figure()
+# plt.imshow(w_r[res_ord,:][:,res_ord])
+# plt.colorbar()
+# plt.title('Recurrents')
+# plt.xlabel('W recurrent sorted')
+# plt.ylabel('W recurrent sorted')
 
-if 0:
-    print('Saving RNN %s' % fname_RNN_save)
-    plt.savefig(path1 + '/RNN_data/' + fname_RNN_save + 'wrsort_fig.png', dpi=1200)
+# if 0:
+#     print('Saving RNN %s' % fname_RNN_save)
+#     plt.savefig(path1 + '/RNN_data/' + fname_RNN_save + 'wrsort_fig.png', dpi=1200)
 
 
-#%%
+# #%%
 
-cs_ord = 1- squareform(pdist(rates_all[res_ord], metric='cosine'));
+# cs_ord = 1- squareform(pdist(rates_all[res_ord], metric='cosine'));
 
-plt.figure()
-plt.imshow(cs_ord)
-plt.title('cosine similarity sorted')
+# plt.figure()
+# plt.imshow(cs_ord)
+# plt.title('cosine similarity sorted')
 
 
 
@@ -1827,54 +1946,54 @@ plt.ylim([-0.013, 0.023])
 
 
 
-#%%
-pca = PCA();
-pca.fit(rates_all[:,:,0])
+# #%%
+# pca = PCA();
+# pca.fit(rates_all[:,:,0])
 
-#%%
-plt.figure()
-plt.subplot(1,2,1);
-plt.plot(pca.explained_variance_, 'o')
-plt.title('Explained Variance'); plt.xlabel('component')
+# #%%
+# plt.figure()
+# plt.subplot(1,2,1);
+# plt.plot(pca.explained_variance_, 'o')
+# plt.title('Explained Variance'); plt.xlabel('component')
 
-plt.subplot(1,2,2);
-plt.plot(pca.components_[0,:], pca.components_[1,:])
-plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC2')
+# plt.subplot(1,2,2);
+# plt.plot(pca.components_[0,:], pca.components_[1,:])
+# plt.title('PCA components'); plt.xlabel('PC1'); plt.ylabel('PC2')
 
-#%%
-flat_dist_met = pdist(rates_all[:,:,0], metric='cosine');
-cs = 1- squareform(flat_dist_met);
-res_linkage = linkage(flat_dist_met, method='average')
+# #%%
+# flat_dist_met = pdist(rates_all[:,:,0], metric='cosine');
+# cs = 1- squareform(flat_dist_met);
+# res_linkage = linkage(flat_dist_met, method='average')
 
-N = len(cs)
-res_ord = seriation(res_linkage,N, N + N -2)
+# N = len(cs)
+# res_ord = seriation(res_linkage,N, N + N -2)
     
-#%%
+# #%%
 
-cs_ord = 1- squareform(pdist(rates_all[res_ord,:,0], metric='cosine'));
+# cs_ord = 1- squareform(pdist(rates_all[res_ord,:,0], metric='cosine'));
 
-plt.figure()
-plt.imshow(cs_ord)
-plt.title('cosine similarity sorted')
+# plt.figure()
+# plt.imshow(cs_ord)
+# plt.title('cosine similarity sorted')
 
-#%% cell tuning
+# #%% cell tuning
 
-#%% save data
+# #%% save data
 
-data_save = {"rates_all": rates_all, "loss_all_smooth": loss_all_smooth,
-             "input_sig": np.asarray(input_sig.data), "target": np.asarray(target.data),
-             "output": outputs_all, "g": g, "dt": dt, "tau": tau, "hidden_size": hidden_size,
-             'ti': ti,
-             'h2h_weight': np.asarray(rnn.h2h.weight.data), 'train_RNN': train_RNN,
-             'i2h_weight': np.asarray(rnn.i2h.weight.data),
-             'h2o_weight': np.asarray(rnn.h2o.weight.data),
-             'fname_input': fname_input}
+# data_save = {"rates_all": rates_all, "loss_all_smooth": loss_all_smooth,
+#              "input_sig": np.asarray(input_sig.data), "target": np.asarray(target.data),
+#              "output": outputs_all, "g": g, "dt": dt, "tau": tau, "hidden_size": hidden_size,
+#              'ti': ti,
+#              'h2h_weight': np.asarray(rnn.h2h.weight.data), 'train_RNN': train_RNN,
+#              'i2h_weight': np.asarray(rnn.i2h.weight.data),
+#              'h2o_weight': np.asarray(rnn.h2o.weight.data),
+#              'fname_input': fname_input}
 
-#save_fname = 'rnn_out_8_25_21_1_complex_g_tau10_5cycles.mat'
+# #save_fname = 'rnn_out_8_25_21_1_complex_g_tau10_5cycles.mat'
 
-save_fname = 'rnn_out_12_31_21_10tones_200reps_notrain.mat'
+# save_fname = 'rnn_out_12_31_21_10tones_200reps_notrain.mat'
 
-savemat(fpath+ save_fname, data_save)
+# savemat(fpath+ save_fname, data_save)
 
 
 

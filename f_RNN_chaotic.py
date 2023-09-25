@@ -25,8 +25,7 @@ class RNN_chaotic(nn.Module):
         self.i2h = nn.Linear(input_size, hidden_size)   #, device=self.device
         self.h2h = nn.Linear(hidden_size, hidden_size)  #, device=self.device
         self.h2o = nn.Linear(hidden_size, output_size_freq) #, device=self.device
-        if output_size_ctx:
-            self.h2o_ctx = nn.Linear(hidden_size, output_size_ctx)
+        self.h2o_ctx = nn.Linear(hidden_size, output_size_ctx)
         self.softmax = nn.LogSoftmax(dim=0)
         if activation == 'tanh':
             self.activ = nn.Tanh()
@@ -62,6 +61,8 @@ class RNN_chaotic(nn.Module):
         # hidden to output
         wh2o = self.h2o.weight.data
         nn.init.normal_(wh2o, mean=0.0, std = 1)
+        wh2o_ctx = self.h2o_ctx.weight.data
+        nn.init.normal_(wh2o_ctx, mean=0.0, std = 1)
         
         mean1 = wh2o.mean()
         wh2o = wh2o - mean1;
