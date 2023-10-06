@@ -337,8 +337,6 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
     num_rep = params['train_repeats_per_samp']
     learning_rate = params['learning_rate']
     
-    input_size = params['input_size']
-    
     loss_strat = 1
     
     T = round((params['stim_duration'] + params['isi_duration'])/params['dt'] * params['train_trials_in_sample'])
@@ -425,7 +423,7 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
             elif params['num_ctx'] == 2:
                 ctx_tag = '(isi,r,d) = (%.2f, %.2f, %.2f)' % (loss_deet[0], loss_deet[1], loss_deet[2])
             
-            if ((n_rep) % 10) == 0:
+            if ((n_samp) % 10) == 0:
                 
                 print('sample %d%s, Loss %0.3f, Time %0.1fs; loss by tt %s' % (n_samp, rep_tag, loss2.item(), time.time() - start_time, ctx_tag))
 
@@ -864,14 +862,14 @@ def f_RNN_test_spont(rnn, input_spont, params):
 def f_gen_dset(dparams, params, stim_templates, stim_sample='equal'):
     
     if stim_sample=='equal':
-        dev_stim = np.round(np.linspace(-1,params['num_freq_stim']+1, dparams['num_dev_stim']+2))[1:-1].astype(int)
+        dev_stim = np.round(np.linspace(0,params['num_freq_stim']+1, dparams['num_dev_stim']+2))[1:-1].astype(int)
         
-        red_stim = np.round(np.linspace(-1,params['num_freq_stim']+1, dparams['num_red_stim']+2))[1:-1].astype(int)
+        red_stim = np.round(np.linspace(0,params['num_freq_stim']+1, dparams['num_red_stim']+2))[1:-1].astype(int)
         
     elif stim_sample=='random':
-        dev_stim = np.random.choice(np.arange(params['num_freq_stim']), size=dparams['num_dev_stim'], replace=False)
+        dev_stim = np.random.choice(np.arange(params['num_freq_stim'])+1, size=dparams['num_dev_stim'], replace=False)
         
-        red_stim = np.random.choice(np.arange(params['num_freq_stim']), size=dparams['num_red_stim'], replace=False)
+        red_stim = np.random.choice(np.arange(params['num_freq_stim'])+1, size=dparams['num_red_stim'], replace=False)
 
     # test oddball trials
     trials_test_oddball_freq, trials_test_oddball_ctx, red_dd_seq = f_gen_oddball_seq(dev_stim, red_stim, dparams['num_trials'], params['dd_frac'], params['num_ctx'], dparams['num_batch'], can_be_same = False)
@@ -967,7 +965,7 @@ def f_run_dred(rates2d_cut, subtr_mean=0, method=1):
         exp_var = Ssq / np.sum(Ssq)
         mean_all = rates_mean
     
-    return proj_data, exp_var, 
+    return proj_data, exp_var, components, mean_all
 
 def f_plot_dred_rates(trials_test_oddball_ctx_cut, comp_out3d, comp_out4d, ob_data1, pl_params, params, title_tag=''):
     num_runs_plot = pl_params['num_runs_plot']

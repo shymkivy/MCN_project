@@ -62,17 +62,24 @@ def f_gen_stim_output_templates(params):
         out_temp[0, (isi_lead+stim_bins):] = 1
         
         out_temp_all[:,:,n_st+1] = out_temp
-        
-    for n_st in range(output_size):
-        if params['plot_deets']:
+    
+    if params['plot_deets']:
+        for n_st in range(output_size):
             plt.figure()
             plt.subplot(121)
             plt.imshow(stim_temp_all[:,:,n_st])
             plt.subplot(122)
             plt.imshow(out_temp_all[:,:,n_st])
             plt.suptitle('stim %d' % n_st)
-
-    return stim_temp_all, out_temp_all
+    
+    out_ctx = out_temp_all[:params['num_ctx']+1,:,:params['num_ctx']+1]
+    
+    stim_templates = {}
+    stim_templates['freq_input'] = stim_temp_all
+    stim_templates['freq_output'] = out_temp_all
+    stim_templates['ctx_output'] = out_ctx
+    
+    return stim_templates
 
 #%%
 def f_gen_stim_output_templates_thin(params):
@@ -228,8 +235,6 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     #input_size = params['input_size']
     #trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'])
     #output_size = params['num_freq_stim'] + 1
-    
-    
     
     input_size, trial_len, _ = stim_templates.shape
     output_size, _, _ = output_templates.shape
