@@ -56,11 +56,12 @@ from datetime import datetime
 
 rnn_flist = ['oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.50tau_20trials_50stim_100batch_0.0010lr_2023_9_11_14h_19m_RNN',
              'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_4_17h_16m_RNN',
-             'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_5_10h_54m_RNN']
+             'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_5_10h_54m_RNN',
+             'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_6_17h_3m_RNN']
 
 num_rnn = len(rnn_flist)
 
-num_rnn0 = 5
+num_rnn0 = 6
 
 
 dparams = {}
@@ -216,7 +217,6 @@ for n_rnn in range(num_rnn0):
 # plt.close('all')
 n_run = 2
 
-
 for n_rnn in range(num_rnn):
     
     f_plot_traj_speed(test_ob_all[n_rnn]['rates'], ob_data1, n_run, start_idx=1000, title_tag= 'trained RNN %d; run %d' % (n_rnn, n_run))
@@ -226,10 +226,8 @@ for n_rnn in range(num_rnn0):
     
     f_plot_traj_speed(test0_ob_all[n_rnn]['rates'], ob_data1, n_run, start_idx=1000, title_tag= 'trained RNN %d; run %d' % (n_rnn, n_run))
     
-      
-    
-    
-    
+
+#%%
     
     
     

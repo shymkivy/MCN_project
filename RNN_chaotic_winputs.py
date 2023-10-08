@@ -142,6 +142,7 @@ fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.50tau_20trials_5
 #fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_50tau_5dt_20trials_50stim_100batch_0.0010lr_2023_9_21_11h_15m_RNN'    # 1 ctx, tau=.05
 #fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_4_17h_16m_RNN'    # 1 ctx, tau=.5
 #fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_5_10h_54m_RNN'    # 1 ctx, tau=.5
+#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_6_17h_3m_RNN'    # 1 ctx, tau=.5
 
 
 #fname_RNN_save = 'test_50k_std4'
