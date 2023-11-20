@@ -107,10 +107,8 @@ fname_RNN_save = name_tag
 
 # generate stim templates
 
-stim_templates = {}
-stim_templates['freq_input'], stim_templates['freq_output'] = f_gen_stim_output_templates(params)
-stim_templates['ctx_output'] = stim_templates['freq_output'][:3,:,:3]
 
+stim_templates = f_gen_stim_output_templates(params)
 
 # shape (seq_len, batch_size, input_size/output_size, num_samples)
 # train control trials 

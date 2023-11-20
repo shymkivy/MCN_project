@@ -18,11 +18,12 @@ for path3 in path2:
 
 #sys.path.append('C:\\Users\\ys2605\\Desktop\\stuff\\mesto\\');
 #sys.path.append('/Users/ys2605/Desktop/stuff/RNN_stuff/RNN_scripts');
-sys.path.append(path1 + 'RNN_scripts');
+sys.path.append(path1 + 'RNN_scripts')
+
 
 
 from f_analysis import f_plot_rates2, f_plot_rates_only # seriation, 
-from f_RNN import f_RNN_trial_ctx_train2, f_RNN_trial_freq_train2, f_RNN_test, f_RNN_test_spont, f_gen_dset, f_trial_ave_ctx_pad, f_run_dred, f_plot_dred_rates, f_plot_traj_speed, f_plot_resp_distances, f_plot_mmn, f_plot_dred_pcs, f_plot_rnn_weights
+from f_RNN import f_RNN_trial_ctx_train2, f_RNN_trial_freq_train2, f_RNN_test, f_RNN_test_spont, f_gen_dset, f_trial_ave_ctx_pad, f_trial_ave_ctx_pad2, f_run_dred, f_plot_dred_rates, f_plot_traj_speed, f_plot_resp_distances, f_plot_mmn, f_plot_dred_pcs, f_plot_rnn_weights
 from f_RNN_chaotic import RNN_chaotic
 from f_RNN_utils import f_gen_stim_output_templates, f_gen_cont_seq, f_gen_oddball_seq, f_gen_input_output_from_seq, f_plot_examle_inputs, f_plot_train_loss, f_plot_train_test_loss
 
@@ -35,6 +36,11 @@ import matplotlib.cm as cm
 #from random import sample, random
 import torch
 import torch.nn as nn
+
+
+sys.path.append(path1 + '../' + 'python_dependencies/dPCA-master/python/dPCA')
+from dPCA import dPCA
+
 
 from sklearn.decomposition import PCA
 #from sklearn.metrics.pairwise import cosine_similarity
@@ -131,7 +137,7 @@ params['train_date'] = now1
 #fname_RNN_load = 'oddball2_1ctx_20000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_14_13h_42m_RNN'             # high loss.... 1 ctx, but still 2 stepish like learning curce
 #fname_RNN_load = 'oddball2_2ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_15_13h_23m_RNN'             # 2 ctx dist not desired
 #fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_16_18h_48m_RNN'             # 1 ctx, exp decay curve, 1 step
-fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.50tau_20trials_50stim_100batch_0.0010lr_2023_9_11_14h_19m_RNN'     # 1 ctx, tau=0.5
+#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.50tau_20trials_50stim_100batch_0.0010lr_2023_9_11_14h_19m_RNN'     # 1 ctx, tau=0.5
 #fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.10tau_20trials_50stim_100batch_0.0010lr_2023_9_13_11h_41m_RNN'     # 1 ctx, tau=0.1
 #fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_1.00tau_20trials_50stim_100batch_0.0010lr_2023_9_14_11h_58m_RNN'     # 1 ctx, tau=1
 #fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_2.00tau_20trials_50stim_100batch_0.0010lr_2023_9_15_12h_18m_RNN'     # 1 ctx, tau=2
@@ -140,7 +146,7 @@ fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.50tau_20trials_5
 #fname_RNN_load = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_0.40tau_20trials_50stim_100batch_0.0010lr_2023_9_18_9h_17m_RNN'     # 1 ctx, tau=.4
 #fname_RNN_load = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_0.10tau_20trials_50stim_100batch_0.0010lr_2023_9_18_16h_17m_RNN'    # 1 ctx, tau=.1
 #fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_50tau_5dt_20trials_50stim_100batch_0.0010lr_2023_9_21_11h_15m_RNN'    # 1 ctx, tau=.05
-#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_4_17h_16m_RNN'    # 1 ctx, tau=.5
+fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_4_17h_16m_RNN'    # 1 ctx, tau=.5
 #fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_5_10h_54m_RNN'    # 1 ctx, tau=.5
 #fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_6_17h_3m_RNN'    # 1 ctx, tau=.5
 
@@ -426,9 +432,10 @@ dparams = {}
 
 dparams['num_trials'] = 1000
 dparams['num_batch'] = 20
-dparams['num_dev_stim'] = 5
-dparams['num_red_stim'] = 50
+dparams['num_dev_stim'] = 10
+dparams['num_red_stim'] = 10
 
+num_skip_trials = 50
 
 do_rnn_zero = 1
 
@@ -438,6 +445,7 @@ dred_met = 2
 trial_len = round((params['stim_duration'] + params['isi_duration']) / params['dt'])
 num_trials = dparams['num_trials']
 num_run = dparams['num_batch']
+num_trials2 = num_trials - num_skip_trials
 
 
 params2 = params.copy()
@@ -451,7 +459,7 @@ params3['stim_duration'] = 1
 params3['dd_frac'] = 0
 
 
-ob_data1 = f_gen_dset(dparams, params2, stim_templates, stim_sample='equal')
+ob_data1 = f_gen_dset(dparams, params2, stim_templates, stim_sample='random')
     
 
 trials_test_oddball_ctx_cut = ob_data1['trials_test_oddball_ctx'][num_skip_trials:,:]
@@ -461,7 +469,8 @@ stim_templates_mono = f_gen_stim_output_templates(params3)
 
 
 # make long constant sounds
-red_stim_const = np.round(np.hstack((0,np.linspace(0,params['num_freq_stim']+1, dparams['num_red_stim']+2)[1:-1]))).astype(int)
+num_const_stim = 50 # params['num_freq_stim']
+red_stim_const = np.round(np.hstack((0,np.linspace(0,num_const_stim+1, num_const_stim+2)[1:-1]))).astype(int)
 
 trials_const_freq = (np.ones((dparams['num_trials'], red_stim_const.shape[0]))* red_stim_const.reshape((1,red_stim_const.shape[0]))).astype(int)
 trials_const_ctx = np.zeros((dparams['num_trials'], red_stim_const.shape[0]), dtype=int)
@@ -478,10 +487,11 @@ if do_rnn_zero:
 
 test_const_ctx = f_RNN_test(rnn, loss_ctx, trials_const_input, trials_const_output_ctx, params, paradigm='ctx')
 
-#%% process test
+if do_rnn_zero:
+    test0_const_ctx = f_RNN_test(rnn0, loss_ctx, trials_const_input, trials_const_output_ctx, params, paradigm='ctx')
 
-num_skip_trials = 50
-num_trials2 = num_trials - num_skip_trials
+
+#%% process test
 
 # f_plot_rates_only(test_oddball_ctx, 'ctx', num_plot_batches = 1, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = num_skip_trials*trial_len, plot_extra = 0)
 
@@ -515,6 +525,16 @@ rates_const_cut = np.reshape(rates_const4d_cut, (trial_len*num_trials2, red_stim
 
 rates_const2d_cut = np.reshape(rates_const_cut, (num_t2*red_stim_const.shape[0], num_cells), order = 'F')
 
+if do_rnn_zero:
+    rates0_const = test0_const_ctx['rates']
+
+    rates0_const4d = np.reshape(rates0_const, (trial_len, num_trials, red_stim_const.shape[0], num_cells), order = 'F')
+    rates0_const4d_cut = rates0_const4d[:,num_skip_trials:,:,:]
+
+    rates0_const_cut = np.reshape(rates0_const4d_cut, (trial_len*num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
+
+    rates0_const2d_cut = np.reshape(rates0_const_cut, (num_t2*red_stim_const.shape[0], num_cells), order = 'F')
+    
 
 # plt.figure()
 # plt.plot(rates4d[:, 0, 0,:])
@@ -532,15 +552,25 @@ proj_data, exp_var, dred_comp, dred_mean = f_run_dred(rates2d_cut, subtr_mean=dr
 comp_out3d = np.reshape(proj_data, (trial_len*num_trials2, num_run, num_cells), order = 'F')
 comp_out4d = np.reshape(proj_data, (trial_len, num_trials2, num_run, num_cells), order = 'F')
 
-proj_data0, exp_var0, _, _ = f_run_dred(rates02d_cut, subtr_mean=dred_subtr_mean, method=dred_met)
-
-comp_out03d = np.reshape(proj_data0, (trial_len*num_trials2, num_run, num_cells), order = 'F')
-comp_out04d = np.reshape(proj_data0, (trial_len, num_trials2, num_run, num_cells), order = 'F')
-
 proj_data_const = np.dot(rates_const2d_cut, dred_comp)
 
 comp_out_const3d = np.reshape(proj_data_const, (trial_len*num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
 comp_out_const4d = np.reshape(proj_data_const, (trial_len, num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
+
+if do_rnn_zero:
+    proj_data0, exp_var0, dred_comp0, _ = f_run_dred(rates02d_cut, subtr_mean=dred_subtr_mean, method=dred_met)
+    
+    # dred_comp0 = dred_comp
+    # proj_data0 = np.dot(rates02d_cut, dred_comp0)
+
+    comp_out03d = np.reshape(proj_data0, (trial_len*num_trials2, num_run, num_cells), order = 'F')
+    comp_out04d = np.reshape(proj_data0, (trial_len, num_trials2, num_run, num_cells), order = 'F')
+
+
+    proj_data0_const = np.dot(rates0_const2d_cut, dred_comp0)
+
+    comp_out0_const3d = np.reshape(proj_data0_const, (trial_len*num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
+    comp_out0_const4d = np.reshape(proj_data0_const, (trial_len, num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
 
 plt.figure()
 #plt.subplot(1,2,1);
@@ -551,85 +581,34 @@ plt.ylabel('fraction')
 plt.title('Explained Variance'); plt.xlabel('component')
 if do_rnn_zero:
     plt.legend(['trained', 'untrained'])
-    
-    
-#%% analyze rates during oddball  
-# plt.close('all')
 
-pl_params = {}
 
-pl_params['num_runs_plot'] = 10
-pl_params['plot_trials'] = 200
-pl_params['color_ctx'] = 0              # 0 = red; 1 = dd
-pl_params['mark_red'] = 1
-pl_params['mark_dd'] = 1
-pl_params['plot_pc'] = [[1, 2], [3, 4], [5, 6], [7, 8]]
-
-f_plot_dred_rates(trials_test_oddball_ctx_cut, comp_out3d, comp_out4d, ob_data1, pl_params, params, title_tag='trained RNN')
-
-f_plot_dred_rates(trials_test_oddball_ctx_cut, comp_out03d, comp_out04d, ob_data1, pl_params, params, title_tag='untrained RNN')
 
 #%%
-# plt.close('all')
 
-title_tag='trained RNN'
+comp_plot = comp_out_const3d
+#comp_plot = comp_out0_const3d
 
-num_runs_plot = 5
-plot_trials = pl_params['plot_trials'] #800
-color_ctx = pl_params['color_ctx']  # 0 = red; 1 = dd
-mark_red = pl_params['mark_red']
-mark_dd = pl_params['mark_dd']
-
-n_bt = 0
-
+plot_trials = 100
+plot_pc2 = [1, 2]
 plot_T = plot_trials*trial_len
 
-plot_pc = pl_params['plot_pc']
-for n_pcpl in range(len(plot_pc)):
-    plot_pc2 = plot_pc[n_pcpl]
+
+plot_pc = [[1, 2], [3, 4]] 
+
+for n_np in range(len(plot_pc)):
+    plot_pc2 = plot_pc[n_np]
+    
     plt.figure()
-    
-    plt.plot(comp_out_const3d[:plot_T, 0, plot_pc2[0]-1], comp_out_const3d[:plot_T, 0, plot_pc2[1]-1], color='gray')
-    
-    #plt.subplot(1,2,2);
-    for n_bt in range(num_runs_plot): #num_bouts
-    
-        temp_ob_tr = trials_test_oddball_ctx_cut[:,n_bt]
+    plt.plot(comp_plot[:plot_T, 0, plot_pc2[0]-1], comp_plot[:plot_T, 0, plot_pc2[1]-1], color='black')
+    for n_red in range(num_const_stim):
+        red_fr = n_red+1
         
-        red_idx = temp_ob_tr == round(params['num_ctx']-1)
-        dd_idx = temp_ob_tr == params['num_ctx']
-        
-        temp_comp4d = comp_out4d[:,:plot_trials,n_bt,:]
-        
-        plt.plot(comp_out3d[:plot_T, n_bt, plot_pc2[0]-1], comp_out3d[:plot_T, n_bt, plot_pc2[1]-1], color=colors1[ob_data1['red_dd_seq'][color_ctx,n_bt]-1,:])
-        
-        if mark_red:
-            plt.plot(temp_comp4d[4:15,:,plot_pc2[0]-1][:,red_idx[:plot_trials]], temp_comp4d[4:15,:,plot_pc2[1]-1][:,red_idx[:plot_trials]], '.b')
-            plt.plot(temp_comp4d[4,:,plot_pc2[0]-1][red_idx[:plot_trials]], temp_comp4d[4,:,plot_pc2[1]-1][red_idx[:plot_trials]], 'ob')
-    
-        if mark_dd: 
-            plt.plot(temp_comp4d[4:15,:,plot_pc2[0]-1][:,dd_idx[:plot_trials]], temp_comp4d[4:15,:,plot_pc2[1]-1][:,dd_idx[:plot_trials]], '.r')
-            plt.plot(temp_comp4d[4,:,plot_pc2[0]-1][dd_idx[:plot_trials]], temp_comp4d[4,:,plot_pc2[1]-1][dd_idx[:plot_trials]], 'or')
+        plt.plot(comp_plot[:plot_T, red_fr, plot_pc2[0]-1], comp_plot[:plot_T, red_fr, plot_pc2[1]-1], color=colors1[n_red,:])
+    plt.xlabel('PC %d' % plot_pc2[0])
+    plt.ylabel('PC %d' % plot_pc2[1])
+    plt.title('const input trained')
 
-        cur_red = ob_data1['red_dd_seq'][0,n_bt]
-        idx_const = np.where(red_stim_const == cur_red)[0][0]
-        
-        plt.plot(comp_out_const3d[:plot_T, idx_const, plot_pc2[0]-1], comp_out_const3d[:plot_T, idx_const, plot_pc2[1]-1], color=colors1[ob_data1['red_dd_seq'][color_ctx,n_bt]-1,:])
-        
-    plt.title('PCA components; %s' % title_tag); plt.xlabel('PC%d' % plot_pc2[0]); plt.ylabel('PC%d' % plot_pc2[1])
-
-
-#%% plot speed of population trajectory
-n_run = 2
-
-f_plot_traj_speed(rates, ob_data1, n_run, start_idx=1000, title_tag= 'trained RNN; run %d' % n_run)
-
-f_plot_traj_speed(rates0, ob_data1, n_run, start_idx=1000, title_tag= 'untrained RNN; run %d' % n_run)
-
-#%%
-f_plot_rates_only(test_oddball_ctx, 'ctx', num_plot_batches = 2, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = 200*trial_len, plot_extra = 0)
-
-f_plot_rates_only(test0_oddball_ctx, 'ctx', num_plot_batches = 2, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = 200*trial_len, plot_extra = 0)
 
 #%% trial averages
 # plt.close('all')
@@ -681,6 +660,615 @@ color_ctx = 0
 f_plot_dred_pcs(comp_out3d_ta, [[0, 1]], ob_data1['red_dd_seq'], color_ctx, colors1, title_tag='svd')
 
 f_plot_dred_pcs(X_transformed3d, [[0, 1]], ob_data1['red_dd_seq'], color_ctx, colors1, title_tag='isomap cosine')
+
+#%% make trial ave data
+
+trial_ave4d2, trial_data_sort, num_dd_trials = f_trial_ave_ctx_pad2(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = pre_dd1, post_dd = post_dd1)
+
+trial_ave4d3 = np.sum(trial_data_sort, axis=2)/ num_dd_trials[None,None,:,None]
+
+num_dd_use = np.min(num_dd_trials).astype(int)
+
+trial_data_sort2 = trial_data_sort[:,:,:num_dd_use,:,:]
+
+
+# t(tr*num_tr), dd_trial, stim_type(run), cells
+trial_data_sort3 = np.reshape(trial_data_sort2, (trial_len*num_tr_ave, num_dd_use, num_batch, num_cells), order = 'F')
+
+
+#%% do pca on trial averaged data
+trial_data_sort3.shape
+trial_ave3 = np.mean(trial_data_sort3, axis=1)
+
+title_tag='trained RNN'
+
+trial_ave3_2d = np.reshape(trial_ave3, (trial_len*num_tr_ave*num_batch, num_cells), order = 'F')
+
+
+proj_data_ta, exp_var_ta, components_ta, mean_all_ta = f_run_dred(trial_ave3_2d, subtr_mean=dred_subtr_mean, method=dred_met)
+
+# proj_data_test = np.dot(trial_ave3_2d, components_ta) # to get same thing
+
+proj_data_ta3d = np.reshape(proj_data_ta, (trial_len*num_tr_ave, num_batch, num_cells), order = 'F')
+
+
+for n_pcpl in range(len(plot_pc)):
+    plot_pc2 = plot_pc[n_pcpl]
+    plt.figure()
+
+    plt.plot(proj_data_ta3d[:,:,plot_pc2[0]-1], proj_data_ta3d[:,:,plot_pc2[1]-1])
+
+    plt.xlabel('PC%d' % plot_pc2[0]); 
+    plt.ylabel('PC%d' % plot_pc2[1]) 
+    plt.title('tria ave PCA components; %s' % title_tag);
+
+
+
+proj_data_rates = np.dot(rates2d_cut, components_ta)
+
+proj_data_rates3d = np.reshape(proj_data_rates, (trial_len*num_trials2, num_batch, num_cells), order = 'F')
+
+for n_pcpl in range(len(plot_pc)):
+    plot_pc2 = plot_pc[n_pcpl]
+    plt.figure()
+
+    plt.plot(proj_data_rates3d[:,:,plot_pc2[0]-1], proj_data_rates3d[:,:,plot_pc2[1]-1])
+
+    plt.xlabel('PC%d' % plot_pc2[0]); 
+    plt.ylabel('PC%d' % plot_pc2[1]) 
+    plt.title('tria ave proj PCA components; %s' % title_tag);
+
+
+
+#%% dpca 
+
+# for dpca
+
+trial_data_sort_dpca = np.moveaxis(trial_data_sort3, [0, 1, 2, 3], [3, 0, 2, 1])
+
+trial_ave_dpca = np.mean(trial_data_sort_dpca, axis=0)
+
+
+# (n_samples,N,S,T)
+dpca = dPCA(labels='st',regularizer='auto')
+
+dpca.protect = ['t']
+
+
+Z = dpca.fit_transform(trial_ave_dpca, trial_data_sort_dpca)
+
+
+plt.figure(figsize=(16,7))
+plt.subplot(131)
+
+for s in range(num_dd_use):
+    plt.plot(Z['t'][0,s])
+
+plt.title('1st time component')
+    
+plt.subplot(132)
+
+for s in range(num_dd_use):
+    plt.plot(Z['s'][0,s])
+    
+plt.title('1st stimulus component')
+    
+plt.subplot(133)
+
+for s in range(num_dd_use):
+    plt.plot(Z['st'][0,s])
+    
+plt.title('1st mixing component')
+plt.show()
+
+
+plt.figure()
+plt.plot(Z['s'][:,0,:].T, Z['s'][:,1,:].T)
+
+plt.figure()
+plt.plot(Z['st'][:,0,:].T, Z['st'][:,1,:].T)
+
+plt.figure()
+plt.plot(Z['t'][:,0,:].T, Z['t'][:,1,:].T)
+
+tags_all = ['s', 'st', 't']
+plt.figure()
+for n_tag in range(3):
+    tag = tags_all[n_tag]
+    plt.plot(dpca.explained_variance_ratio_[tag])
+plt.legend(tags_all)
+plt.title('explained variance')
+
+
+# D - from data to low d
+# P - from low D to data
+
+dpca.D['st'].shape
+dpca.P['s'].shape
+
+
+title_tag='trained RNN'
+
+
+
+plt.figure()
+plt.plot(dpca.D['st'][:,0], dpca.D['st'][:,1])
+
+plot_data = Z
+
+plot_pc = [[1, 2], [3, 4]]
+
+for n_pcpl in range(len(plot_pc)):
+    plot_pc2 = plot_pc[n_pcpl]
+    plt.figure()
+    for n_tag in range(3):
+        plt.subplot(1,3,n_tag+1)
+        tag = tags_all[n_tag]
+        plt.plot(plot_data[tag][:,plot_pc2[0]-1,:].T, plot_data[tag][:,plot_pc2[1]-1,:].T)
+        plt.title(tag)
+        plt.xlabel('PC%d' % plot_pc2[0]); 
+        plt.ylabel('PC%d' % plot_pc2[1]) 
+    plt.suptitle('dPCA components; %s' % title_tag); 
+    
+
+proj_data_rates = np.dot(rates2d_cut, components_ta)
+
+trial_data_sort_dpca.shape
+
+trial_data_sort_dpca2d = np.reshape(trial_data_sort_dpca, (10, 25*20*180))
+
+proj_data_st = np.dot(trial_ave3_2d, dpca.D['t'])
+
+proj_data_st3d = np.reshape(proj_data_st, (trial_len*num_tr_ave, num_batch, 10), order = 'F')
+
+
+for n_pcpl in range(len(plot_pc)):
+    plot_pc2 = plot_pc[n_pcpl]
+    plt.figure()
+
+    plt.plot(proj_data_st3d[:,:,plot_pc2[0]-1], proj_data_st3d[:,:,plot_pc2[1]-1])
+
+    plt.xlabel('PC%d' % plot_pc2[0]); 
+    plt.ylabel('PC%d' % plot_pc2[1]) 
+    plt.title('dPCA st proj tria ave components; %s' % title_tag);
+
+
+proj_data_rates_st = np.dot(rates2d_cut, dpca.D['st'])
+
+proj_data_rates_st3d = np.reshape(proj_data_rates_st, (trial_len*num_trials2, num_batch, 10), order = 'F')
+
+
+for n_pcpl in range(len(plot_pc)):
+    plot_pc2 = plot_pc[n_pcpl]
+    plt.figure()
+
+    plt.plot(proj_data_rates_st3d[:,:,plot_pc2[0]-1], proj_data_rates_st3d[:,:,plot_pc2[1]-1])
+
+    plt.xlabel('PC%d' % plot_pc2[0]); 
+    plt.ylabel('PC%d' % plot_pc2[1]) 
+    plt.title('dPCA proj rates components; %s' % title_tag);
+
+
+#%% analyze rates during oddball  
+# plt.close('all')
+
+pl_params = {}
+
+pl_params['num_runs_plot'] = 3
+pl_params['plot_trials'] = 100
+pl_params['color_ctx'] = 0              # 0 = red; 1 = dd
+pl_params['mark_red'] = 1
+pl_params['mark_dd'] = 1
+pl_params['plot_pc'] = [[1, 2], [3, 4], [5, 6], [7, 8]]
+
+f_plot_dred_rates(trials_test_oddball_ctx_cut, comp_out3d, comp_out4d, ob_data1, pl_params, params, title_tag='trained RNN')
+
+f_plot_dred_rates(trials_test_oddball_ctx_cut, comp_out03d, comp_out04d, ob_data1, pl_params, params, title_tag='untrained RNN')
+
+#%%
+# plt.close('all')
+
+
+title_tag='trained RNN'
+
+num_runs_plot = 5
+plot_trials = pl_params['plot_trials'] #800
+color_ctx = pl_params['color_ctx']  # 0 = red; 1 = dd
+mark_red = pl_params['mark_red']
+mark_dd = pl_params['mark_dd']
+
+n_bt = 0
+
+plot_T = plot_trials*trial_len
+
+plot_pc = pl_params['plot_pc']
+for n_pcpl in range(len(plot_pc)):
+    plot_pc2 = plot_pc[n_pcpl]
+    plt.figure()
+    
+    plt.plot(comp_out_const3d[:plot_T, 0, plot_pc2[0]-1], comp_out_const3d[:plot_T, 0, plot_pc2[1]-1], color='gray')
+    
+    #plt.subplot(1,2,2);
+    for n_bt in range(num_runs_plot): #num_bouts
+    
+        temp_ob_tr = trials_test_oddball_ctx_cut[:,n_bt]
+        
+        red_idx = temp_ob_tr == round(params['num_ctx']-1)
+        dd_idx = temp_ob_tr == params['num_ctx']
+        
+        temp_comp4d = comp_out4d[:,:plot_trials,n_bt,:]
+        
+        plt.plot(comp_out3d[:plot_T, n_bt, plot_pc2[0]-1], comp_out3d[:plot_T, n_bt, plot_pc2[1]-1], color=colors1[ob_data1['red_dd_seq'][color_ctx,n_bt]-1,:])
+        
+        if mark_red:
+            plt.plot(temp_comp4d[4:15,:,plot_pc2[0]-1][:,red_idx[:plot_trials]], temp_comp4d[4:15,:,plot_pc2[1]-1][:,red_idx[:plot_trials]], '.b')
+            plt.plot(temp_comp4d[4,:,plot_pc2[0]-1][red_idx[:plot_trials]], temp_comp4d[4,:,plot_pc2[1]-1][red_idx[:plot_trials]], 'ob')
+    
+        if mark_dd: 
+            plt.plot(temp_comp4d[4:15,:,plot_pc2[0]-1][:,dd_idx[:plot_trials]], temp_comp4d[4:15,:,plot_pc2[1]-1][:,dd_idx[:plot_trials]], '.r')
+            plt.plot(temp_comp4d[4,:,plot_pc2[0]-1][dd_idx[:plot_trials]], temp_comp4d[4,:,plot_pc2[1]-1][dd_idx[:plot_trials]], 'or')
+
+        cur_red = ob_data1['red_dd_seq'][0,n_bt]
+        idx_const = np.where(red_stim_const == cur_red)[0][0]
+        
+        plt.plot(comp_out_const3d[:plot_T, idx_const, plot_pc2[0]-1], comp_out_const3d[:plot_T, idx_const, plot_pc2[1]-1], color=colors1[ob_data1['red_dd_seq'][color_ctx,n_bt]-1,:])
+        
+    plt.title('PCA components; %s' % title_tag); plt.xlabel('PC%d' % plot_pc2[0]); plt.ylabel('PC%d' % plot_pc2[1])
+
+#%% sample rates space
+#plt.close('all')
+
+plot_trials = 100
+plot_T = plot_trials*trial_len
+
+n_tr = 0
+stim_on = 1
+plot_dd = 0
+thresh_on = 1
+
+plot_pc = [[1, 2], [3, 4], [5, 6]]
+
+pc_init_type = 'mean_plus_last' # 'mean_pc', zero, mean_plus_last
+
+vec_size_fac = 3
+
+red_fr = ob_data1['red_dd_seq'][0, n_tr]
+dd_fr = ob_data1['red_dd_seq'][1, n_tr]
+
+
+if stim_on:
+    st_frame = 10
+    if plot_dd:
+        plot_fr = dd_fr
+        stim_on_tag = 'dd; stim on'
+        qv_col = 'pink'
+        fx_pt_col = 'red'
+    else:
+        plot_fr = red_fr
+        stim_on_tag = 'red; stim on'
+        qv_col = 'lightblue'
+        fx_pt_col = 'blue'
+else:
+    plot_fr = dd_fr
+    stim_on_tag = 'stim off'
+    st_frame = 0
+    qv_col = 'lightgray'
+    fx_pt_col = 'black'
+
+  
+comp_plot = comp_out3d
+comp_conts_plot = comp_out_const3d
+dred_comp_use = dred_comp
+title_tag5 = 'trained, %s' %  (stim_on_tag)
+rnn_use = rnn
+
+# comp_plot = comp_out03d
+# comp_conts_plot = comp_out0_const3d
+# dred_comp_use = dred_comp0
+# title_tag5 = 'untrained, stim off'
+# rnn_use = rnn0
+
+num_samp = 1000
+
+mean_fix_pt = np.zeros((num_cells))
+
+for n_pc in range(len(plot_pc)):
+    plot_pc2 = np.asarray(plot_pc[n_pc])
+
+    # input2 = trials_const_input[0,red_fr,:]
+    # input_cut = ob_data1['input_test_oddball'][num_skip_trials*trial_len:,:,:]
+    
+    # plt.figure()
+    # plt.imshow(trials_const_input[:,red_fr,:].T, aspect='auto')
+    
+    input0 = stim_templates['freq_input'][:,st_frame, plot_fr]
+    input1 = torch.tensor(input0).float().to(params['device'])
+    
+    # rates_temp = rates_cut[:, n_tr,:]
+    # proj_temp = np.dot(rates_temp, dred_comp_use)
+    
+    # plt.figure()
+    # plt.plot(input0.flatten())
+    # plt.plot(input2)
+    
+    # plt.figure()
+    # plt.plot(rates_temp)
+    
+    plt.figure()
+    
+    pl1 = plt.plot(comp_plot[:plot_T, n_tr, plot_pc2[0]-1], comp_plot[:plot_T, n_tr, plot_pc2[1]-1], color='green')
+    pl2 = plt.plot(comp_conts_plot[:plot_T, 0, plot_pc2[0]-1], comp_conts_plot[:plot_T, 0, plot_pc2[1]-1], color='darkgray')
+    pl3 = plt.plot(comp_conts_plot[:plot_T, red_fr, plot_pc2[0]-1], comp_conts_plot[:plot_T, red_fr, plot_pc2[1]-1], color='darkgreen')
+    
+    plt.xlabel('PC %d' % plot_pc2[0])
+    plt.ylabel('PC %d' % plot_pc2[1])
+    plt.title('%s; trial %d; red freq %d; dd freq %d' % (title_tag5, n_tr, red_fr, dd_fr))
+    
+    
+    # pc_min1 = np.min(comp_plot[:,n_tr,:], axis=0)
+    # pc_max1 = np.max(comp_plot[:,n_tr,:], axis=0)
+    
+    # pc_min2 = np.min(comp_conts_plot[:,0,:], axis=0)
+    # pc_max2 = np.max(comp_conts_plot[:,0,:], axis=0)
+    
+    # pc_min3 = np.min(comp_conts_plot[:,red_fr,:], axis=0)
+    # pc_max3 = np.max(comp_conts_plot[:,red_fr,:], axis=0)
+    
+    # pc_min = np.min(np.vstack((pc_min1, pc_min2, pc_min3)), axis=0)
+    # pc_max = np.max(np.vstack((pc_max1, pc_max2, pc_max3)), axis=0)
+    
+    
+    pc_min1 = np.min(np.min(comp_plot[:,:,:], axis=0), axis=0)
+    pc_max1 = np.max(np.max(comp_plot[:,:,:], axis=0), axis=0)
+
+    pc_min3 = np.min(np.min(comp_conts_plot[:,:,:], axis=0), axis=0)
+    pc_max3 = np.max(np.max(comp_conts_plot[:,:,:], axis=0), axis=0)
+
+    pc_min = np.min(np.vstack((pc_min1, pc_min3)), axis=0)
+    pc_max = np.max(np.vstack((pc_max1, pc_max3)), axis=0)
+    
+    pc_mean = np.mean(comp_plot[:,n_tr,:], axis=0)
+    
+    pc_scale = pc_max - pc_min
+    pc_cent = np.mean(np.vstack((pc_min, pc_max)), axis=0)
+    
+    dred_inv = linalg.inv(dred_comp_use)
+    
+    # plt.figure()
+    # plt.plot(rate_new2)
+    
+    # plt.figure()
+    # plt.plot(rates_temp)
+    
+    #rate_new2 = np.zeros(rates_temp.shape)
+    #rate_new2[0,:] = rates_temp[0,:]
+    
+    dist1 = np.ones((num_samp))*100
+    
+    
+    if pc_init_type == 'zero':
+        start_loc = np.zeros((num_samp, num_cells))
+    elif pc_init_type == 'mean_pc':
+        start_loc = np.ones((num_samp, num_cells)) * pc_mean.reshape((1, num_cells))
+    elif pc_init_type == 'mean_plus_last':
+        start_loc = np.ones((num_samp, num_cells)) * pc_mean.reshape((1, num_cells))
+        start_loc[:,:plot_pc2[0]-1] = np.ones((num_samp, plot_pc2[0]-1)) * mean_fix_pt[:plot_pc2[0]-1].reshape((1, plot_pc2[0]-1))
+        
+    samp5 = np.random.uniform(low=0.0, high=1.0, size=(num_samp, 2))-0.5
+    start_loc[:,plot_pc2-1] = np.ones((num_samp, 2)) * (samp5)*pc_scale[plot_pc2-1] + pc_cent[plot_pc2-1]
+    
+    out_all = np.zeros((num_samp, 2))
+    
+    for n_samp in range(num_samp):
+        
+        #start_loc = (np.random.uniform(low=0.0, high=1.0, size=25)-0.5)*pc_scale + pc_cent
+
+        rates1 = np.dot(start_loc[n_samp,:], dred_inv)
+        
+        #rat111 = rnn.init_rate(50).to(params['device'])
+        
+        #rates11 = rates_temp[n_samp,:]
+        
+        rate_start = torch.tensor(rates1).float().to(params['device'])
+        #rate_start = torch.tensor(rates_temp[n_samp,:]).float().to(params['device'])
+        #input5 = torch.tensor(input_cut[n_samp+1,n_tr,:]).float().to(params['device'])
+        input5 = torch.tensor(input1).float().to(params['device'])
+        
+        rates_out = rnn_use.recurrence(input5, rate_start)
+        
+        out_all[n_samp,:] = rnn_use.h2o_ctx(rate_start).detach().numpy()
+        
+        #rate_new2[n_samp+1,:] = rates_out.detach().numpy()
+        
+        #output, rates = rnn.forward_ctx(input1, rate_start)
+        
+        rates2 = rates_out.detach().numpy()
+        
+        dist1[n_samp] = np.mean((rates2 - rates1)**2)
+        
+        proj_data_const1 = np.dot(rate_start, dred_comp_use)
+        proj_data_const2 = np.dot(rates2, dred_comp_use)
+        
+        #plt.plot([proj_data_const1[0], proj_data_const2[0]], [proj_data_const1[1], proj_data_const2[1]])
+        
+        plt.quiver(proj_data_const1[plot_pc2[0]-1], proj_data_const1[plot_pc2[1]-1], (proj_data_const2[plot_pc2[0]-1]-proj_data_const1[plot_pc2[0]-1]), (proj_data_const2[plot_pc2[1]-1]-proj_data_const1[plot_pc2[1]-1]), width =0.001, color=qv_col, scale = vec_size_fac)       
+
+    low_thresh = np.percentile(dist1, 1)
+    idx_low = dist1 < low_thresh
+    
+    start_low = start_loc[idx_low,:]
+    
+    mean_fix_pt[plot_pc2-1] = np.mean(start_low[:,plot_pc2-1], axis=0)
+    
+    # proj_data_dist1 = np.dot(start_low, dred_comp_use)
+    
+    idx_rd = np.argmax(out_all, axis=1).astype(bool)
+
+    pl4 = plt.plot(start_low[:,plot_pc2[0]-1], start_low[:,plot_pc2[1]-1], 'o', color=fx_pt_col)
+    
+    plt.legend([pl1[0], pl2[0], pl3[0], pl4[0]], ['oddball', 'no stim', 'stim on', 'fix pt'])
+    
+    if thresh_on:
+        plt.plot(start_loc[idx_rd,plot_pc2[0]-1], start_loc[idx_rd,plot_pc2[1]-1], '.', color='red')
+        plt.plot(start_loc[~idx_rd,plot_pc2[0]-1], start_loc[~idx_rd,plot_pc2[1]-1], '.', color='blue')
+
+#%%
+
+st_frame = 10
+
+
+rate_max = np.max(rates2d_cut)
+rate_min = np.min(rates2d_cut)
+
+num_samp = int(1e5)
+
+
+plt.figure()
+
+rates_samp_all = []
+
+for n_red in range(1,50, 7):
+    print('trial %d' % n_red)
+    red_fr = n_red+1
+    
+    input0 = stim_templates['freq_input'][:,st_frame, red_fr]
+    input1 = torch.tensor(input0).float().to(params['device'])
+    
+    dist1 = np.ones((num_samp))*100
+    
+    rate_samp_all = np.random.uniform(low=0.0, high=1.0, size=(num_samp, num_cells)) * (rate_max - rate_min) + rate_min
+    
+    #rate_samp_all2 = torch.tensor(rate_samp_all).float().to(params['device'])
+    
+    for n_samp in range(num_samp):
+        
+        rate_samp = rate_samp_all[n_samp, :]
+        
+        rate_samp2 = torch.tensor(rate_samp).float().to(params['device'])
+        
+        #rate_samp2 = rate_samp_all2[:,n_samp]
+        
+        rates_out = rnn.recurrence(input1, rate_samp2)
+        
+        rates_out2 = rates_out.detach().numpy()
+        
+        dist1[n_samp] = np.sqrt(np.mean((rates_out2 - rate_samp)**2))
+    
+    low_thresh = np.percentile(dist1, 0.005)
+    
+    idx_low_rate = dist1 < low_thresh
+    
+    rate_samp_low = rate_samp_all[idx_low_rate, :]
+    
+    rates_samp_all.append(rate_samp_low)
+    
+    proj_data_samp = np.dot(rate_samp_low, dred_comp)
+
+    
+    plt.plot(proj_data_samp[:,0], proj_data_samp[:,1], 'o', color=colors1[n_red,:])
+    
+    
+    # proj_data_samp2, exp_var_samp2, dred_comp_samp2, dred_mean_samp2 = f_run_dred(rate_samp_low, subtr_mean=dred_subtr_mean, method=dred_met)
+
+
+rates_samp_all2 = np.vstack(rates_samp_all)
+
+proj_data_samp2, exp_var_samp2, dred_comp_samp2, dred_mean_samp2 = f_run_dred(rates_samp_all2, subtr_mean=dred_subtr_mean, method=dred_met)
+
+plt.figure()
+plt.plot(proj_data_samp2[:,0], proj_data_samp2[:,1], 'o')
+    
+
+
+#%% plot vectors for 
+
+comp_plot = comp_out_const3d
+#comp_plot = comp_out0_const3d
+
+plot_trials = 100
+plot_T = plot_trials*trial_len
+
+st_frame = 10
+
+plot_pc = [[1, 2], [3, 4]] 
+
+pc_min1 = np.min(np.min(comp_plot[:,:,:], axis=0), axis=0)
+pc_max1 = np.max(np.max(comp_plot[:,:,:], axis=0), axis=0)
+
+pc_min3 = np.min(np.min(comp_conts_plot[:,:,:], axis=0), axis=0)
+pc_max3 = np.min(np.max(comp_conts_plot[:,:,:], axis=0), axis=0)
+
+pc_min = np.min(np.vstack((pc_min1, pc_min3)), axis=0)
+pc_max = np.max(np.vstack((pc_max1, pc_max3)), axis=0)
+
+pc_mean = np.mean(np.mean(comp_plot[:,:,:], axis=0), axis=0)
+
+pc_scale = pc_max - pc_min
+pc_cent = np.mean(np.vstack((pc_min, pc_max)), axis=0)
+
+dred_inv = linalg.inv(dred_comp_use)
+
+for n_pc in range(len(plot_pc)):
+    plot_pc2 = np.asarray(plot_pc[n_pc])
+    
+    
+    for n_red in range(1,50, 7):
+        red_fr = n_red+1
+        
+        input0 = stim_templates['freq_input'][:,st_frame, red_fr]
+        input1 = torch.tensor(input0).float().to(params['device'])
+        
+        plt.figure()
+        
+        for n_samp in range(1000):
+            
+            #start_loc = (np.random.uniform(low=0.0, high=1.0, size=25)-0.5)*pc_scale + pc_cent
+            
+            #start_loc = np.zeros((25))
+            start_loc = pc_mean.copy()
+            start_loc[plot_pc2-1] = (np.random.uniform(low=0.0, high=1.0, size=2)-0.5)*pc_scale[plot_pc2-1] + pc_cent[plot_pc2-1]
+            
+            rates1 = np.dot(start_loc, dred_inv)
+            
+            #rat111 = rnn.init_rate(50).to(params['device'])
+            
+            #rates11 = rates_temp[n_samp,:]
+            
+            rate_start = torch.tensor(rates1).float().to(params['device'])
+            #rate_start = torch.tensor(rates_temp[n_samp,:]).float().to(params['device'])
+            #input5 = torch.tensor(input_cut[n_samp+1,n_tr,:]).float().to(params['device'])
+            input5 = torch.tensor(input1).float().to(params['device'])
+            
+            rates_out = rnn.recurrence(input5, rate_start)
+            
+            #rate_new2[n_samp+1,:] = rates_out.detach().numpy()
+            
+            #output, rates = rnn.forward_ctx(input1, rate_start)
+            
+            rates2 = rates_out.detach().numpy()
+            
+            proj_data_const1 = np.dot(rate_start, dred_comp_use)
+            proj_data_const2 = np.dot(rates2, dred_comp_use)
+            
+            #plt.plot([proj_data_const1[0], proj_data_const2[0]], [proj_data_const1[1], proj_data_const2[1]])
+            plt.quiver(proj_data_const1[plot_pc2[0]-1], proj_data_const1[plot_pc2[1]-1], proj_data_const2[plot_pc2[0]-1]-proj_data_const1[plot_pc2[0]-1], proj_data_const2[plot_pc2[1]-1]-proj_data_const1[plot_pc2[1]-1], width =0.001, color='gray')       
+        plt.title('red fr %d' % red_fr)
+        plt.xlabel('PC %d' % plot_pc2[0])
+        plt.ylabel('PC %d' % plot_pc2[1])
+        
+
+#%% plot speed of population trajectory
+n_run = 2
+
+f_plot_traj_speed(rates, ob_data1, n_run, start_idx=1000, title_tag= 'trained RNN; run %d' % n_run)
+
+f_plot_traj_speed(rates0, ob_data1, n_run, start_idx=1000, title_tag= 'untrained RNN; run %d' % n_run)
+
+#%%
+f_plot_rates_only(test_oddball_ctx, 'ctx', num_plot_batches = 2, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = 200*trial_len, plot_extra = 0)
+
+f_plot_rates_only(test0_oddball_ctx, 'ctx', num_plot_batches = 2, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = 200*trial_len, plot_extra = 0)
+
 
 
 #%%  analyze distances const dd/red
@@ -782,6 +1370,160 @@ if 0:
     plt.plot(comp_out3d[0, n_bt, 0], comp_out3d[0, n_bt, 1], '*')
     plt.title('PCA components; bout %d' % n_bt); plt.xlabel('PC1'); plt.ylabel('PC2')
       
+#%% dpca stuff
+
+N,T,S = 100,250,6
+
+# noise-level and number of trials in each condition
+noise, n_samples = 0.2, 10
+
+# build two latent factors
+zt = (np.arange(T)/float(T))
+zs = (np.arange(S)/float(S))
+
+# build trial-by trial data
+trialR = noise*np.random.randn(n_samples,N,S,T)
+trialR += np.random.randn(N)[None,:,None,None]*zt[None,None,None,:]
+trialR += np.random.randn(N)[None,:,None,None]*zs[None,None,:,None]
+
+# trial-average data
+R = np.mean(trialR,0)
+
+# center data
+R -= np.mean(R.reshape((N,-1)),1)[:,None,None]
+
+#%%
+
+# (n_samples,N,S,T)
+dpca = dPCA(labels='st',regularizer='auto')
+
+
+dpca.protect = ['t']
+
+Z = dpca.fit_transform(R,trialR)
+
+#%%
+
+time = np.arange(T)
+
+plt.figure(figsize=(16,7))
+plt.subplot(131)
+
+for s in range(S):
+    plt.plot(time,Z['t'][0,s])
+
+plt.title('1st time component')
+    
+plt.subplot(132)
+
+for s in range(S):
+    plt.plot(time,Z['s'][0,s])
+    
+plt.title('1st stimulus component')
+    
+plt.subplot(133)
+
+for s in range(S):
+    plt.plot(time,Z['st'][0,s])
+    
+plt.title('1st mixing component')
+plt.show()
+
+
+#%% working
+
+class dred_torch(nn.Module):
+    def __init__(self, data_in, k=2) -> None:
+        super(dred_torch, self).__init__()
+        num_row, num_col = data_in.shape
+        
+        self.num_col = num_col
+        self.num_row = num_row
+        self.k = k
+        
+        self.data = torch.tensor(data_in)
+          
+    def fit(self):
+        
+        L = nn.parameter.Parameter(torch.randn((self.num_row, self.k))).float()
+        R = nn.parameter.Parameter(torch.randn((self.k, self.num_col))).float()
+        
+        optimizer = torch.optim.AdamW([L, R], lr=0.01)
+        #optimizer = torch.optim.SGD(self.parameters(), lr=0.05)
+        
+        data = self.data
+        
+        num_it = round(2e3)
+      
+        tot_loss = torch.zeros((num_it))
+        loss1_all = torch.zeros((num_it))
+        loss2_all = torch.zeros((num_it))
+        
+        for n_it in range(num_it):
+        
+            optimizer.zero_grad()
+        
+            loss1 = (torch.sum(torch.abs((data - torch.matmul(L, R)))**1)/(self.num_col*self.num_row))
+            loss2 = (torch.sum(torch.abs((torch.matmul(R, R.T) - torch.eye(self.k))))/(self.num_col**2))*1e2
+            
+            loss = loss1 # + loss2
+            
+            loss.backward()
+            optimizer.step()
+        
+            tot_loss[n_it] = loss.item()
+            loss1_all[n_it] = loss1.item()
+            loss2_all[n_it] = loss2.item()
+            
+            print('iter %d; loss_tot = %.2f; loss1 = %.2f; loss2 = %.2f' % (n_it, loss.item(), loss1.item(), loss2.item()))
+        
+        self.tot_loss = tot_loss
+        self.loss1_all = loss1_all
+        self.loss2_all = loss2_all
+        self.L_final = L.detach()
+        self.R_final = R.detach()
+        
+
+#%%
+
+dred_tr = dred_torch(rates2d_cut, k=3)
+
+
+dred_tr.fit()
+
+tot_loss = dred_tr.tot_loss.numpy()
+
+
+plt.figure()
+plt.plot(tot_loss)
+
+L = dred_tr.L_final.detach().numpy()
+R = dred_tr.R_final.detach().numpy()
+
+
+plt.figure()
+plt.plot(L[:,1], L[:,2])
+
+
+
+plt.figure()
+plt.plot(proj_data[:,1], proj_data[:,2])
+
+
+np.dot(R, R.T)
+
+np.dot(L.T, L)
+
+
+np.dot(proj_data[:,:3].T, proj_data[:,:3])
+
+
+plt.figure()
+plt.plot(L)
+
+plt.plot(proj_data[:,:3])
+
+
 #%% end of usefull stuff
 
 

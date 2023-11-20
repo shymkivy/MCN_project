@@ -917,6 +917,41 @@ def f_trial_ave_ctx_pad(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = 2, po
         temp_ave4d[:,:,n_run,:] = temp_sum1/num_dd
     
     return temp_ave4d
+
+def f_trial_ave_ctx_pad2(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = 2, post_dd = 2):
+    num_t, num_tr, num_run, num_cells = rates4d_cut.shape
+    
+    num_tr_ave = pre_dd + post_dd + 1
+    
+    temp_ave4d = np.zeros((num_t, num_tr_ave, num_run, num_cells))
+    
+    max_dd_trials = np.max(np.sum(trials_test_oddball_ctx_cut, axis=0))
+    
+    num_dd_trials = np.zeros((num_run))
+    trial_data_sort = np.zeros((num_t, num_tr_ave, max_dd_trials, num_run, num_cells))
+    
+    for n_run in range(num_run):
+            
+        temp_ob = trials_test_oddball_ctx_cut[:,n_run]
+        
+        temp_sum1 = np.zeros((num_t, num_tr_ave, num_cells))
+        num_dd = 0
+        
+        for n_tr in range(pre_dd, num_tr-post_dd):
+            
+            if temp_ob[n_tr]: # if currently on dd trial
+                
+                if np.sum(temp_ob[n_tr-pre_dd:n_tr+post_dd+1]) == 1: # if only 1 dd in vicinity
+                    
+                    trial_data_sort[:,:,num_dd,n_run,:] = rates4d_cut[:, n_tr-pre_dd:n_tr+post_dd+1, n_run, :]
+                    num_dd_trials[n_run] +=1
+                    
+                    num_dd += 1
+                    temp_sum1 += rates4d_cut[:, n_tr-pre_dd:n_tr+post_dd+1, n_run, :]
+                    
+        temp_ave4d[:,:,n_run,:] = temp_sum1/num_dd
+    
+    return temp_ave4d, trial_data_sort, num_dd_trials
     
 def f_trial_ave_ctx_rd(rates4d_cut, trials_test_oddball_ctx_cut, params):
     num_t, num_tr, num_run, num_cells = rates4d_cut.shape
@@ -967,6 +1002,59 @@ def f_run_dred(rates2d_cut, subtr_mean=0, method=1):
     
     return proj_data, exp_var, components, mean_all
 
+#%% dred wit hpytorch
+
+class dred_torch(nn.Module):
+    def __init__(self, data_in, k=2) -> None:
+        super(regress, self).__init__()
+        n_row, n_col = data_in.shape
+        self.beta = nn.parameter.Parameter(beta0).float()
+          
+    def fit(self, x):
+        out = torch.matmul(x, self.beta)
+        
+        t_beta0_init = torch.randn((x_tr.shape[1],1)).float()
+        
+        reg_model = regress(t_beta0_init)
+        
+        x0t = torch.tensor(x_tr).float()
+        y1t = torch.tensor(y_tr).float()
+        
+        optimizer = torch.optim.SGD(reg_model.parameters(), lr=0.01)
+        
+        num_it = round(1e3)
+        
+        tot_loss = np.zeros((num_it))
+
+        for n_it in range(num_it):
+    
+            optimizer.zero_grad()
+            
+            out = reg_model.forward(x0t)
+            
+            #loss = torch.mean(torch.abs((out - y1t))**1)
+            loss = torch.mean((out - y1t)**2)
+            #loss = torch.mean((out - y1t)**2) + torch.mean(torch.abs((out - y1t))**1)
+            
+            loss.backward()
+            optimizer.step()
+            
+            tot_loss[n_it] = loss.item()
+    
+        plt.figure()
+        plt.plot(np.log(tot_loss))
+        
+        
+        beta0t = reg_model.beta.detach().numpy()
+        
+        y_pred0train = np.dot(x_tr, beta0t)
+        y_pred0test = np.dot(x_tst, beta0t)
+          
+        return out
+#%%
+
+
+#%%
 def f_plot_dred_rates(trials_test_oddball_ctx_cut, comp_out3d, comp_out4d, ob_data1, pl_params, params, title_tag=''):
     num_runs_plot = pl_params['num_runs_plot']
     plot_trials = pl_params['plot_trials'] #800
