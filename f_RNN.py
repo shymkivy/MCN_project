@@ -340,7 +340,7 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
     loss_strat = 1
     
     T = round((params['stim_duration'] + params['isi_duration'])/params['dt'] * params['train_trials_in_sample'])
-    num_samp = params['train_num_samples_ctx']
+    num_samp = params['train_num_samples']
     batch_size = params['train_batch_size']
     
     
@@ -505,7 +505,7 @@ def f_RNN_trial_freq_train2(rnn, loss, stim_templates, params, rnn_out = {}):
     loss_strat = 1
     
     T = round((params['stim_duration'] + params['isi_duration'])/params['dt'] * params['train_trials_in_sample'])
-    num_samp = params['train_num_samples_freq']
+    num_samp = params['train_num_samples']
     batch_size = params['train_batch_size']
     
     
@@ -524,14 +524,14 @@ def f_RNN_trial_freq_train2(rnn, loss, stim_templates, params, rnn_out = {}):
     
     for n_samp in range(num_samp):
          
-        rate_start = rnn.init_rate(params['train_batch_size'])
+        rate_start = rnn.init_rate(params['train_batch_size']).to(params['device'])
         
         # get sample
         trials_test_cont = f_gen_cont_seq(params['num_freq_stim'], params['train_trials_in_sample'], params['train_batch_size'], 1)
         input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_templates['freq_input'], stim_templates['freq_output'], params)
 
-        input_sig = torch.tensor(input_test_cont).float()
-        target = torch.tensor(output_test_cont).float()
+        input_sig = torch.tensor(input_test_cont).float().to(params['device'])
+        target = torch.tensor(output_test_cont).float().to(params['device'])
         
         for n_rep in range(num_rep):
             
@@ -539,7 +539,7 @@ def f_RNN_trial_freq_train2(rnn, loss, stim_templates, params, rnn_out = {}):
             
             output, rate = rnn.forward_freq(input_sig, rate_start)
             
-            target2 = (torch.argmax(target, dim =2) * torch.ones(T, batch_size)).long()
+            target2 = (torch.argmax(target, dim =2) * torch.ones(T, batch_size).to(params['device'])).long()
             
             
             if loss_strat == 1:
@@ -576,11 +576,11 @@ def f_RNN_trial_freq_train2(rnn, loss, stim_templates, params, rnn_out = {}):
             #rnn_out['loss'][n_samp, n_rep] = loss2.item()
             rnn_out['loss'].append(loss2.item())
             
-            rnn_out['rates'] = rate.detach().numpy()
-            rnn_out['input'] = input_sig.detach().numpy()
-            rnn_out['output'] = output.detach().numpy()
-            rnn_out['target'] = target.detach().numpy()
-            rnn_out['target_idx'] = target2.detach().numpy()
+            rnn_out['rates'] = rate.detach().cpu().numpy()
+            rnn_out['input'] = input_sig.detach().cpu().numpy()
+            rnn_out['output'] = output.detach().cpu().numpy()
+            rnn_out['target'] = target.detach().cpu().numpy()
+            rnn_out['target_idx'] = target2.detach().cpu().numpy()
             
             if num_rep>1:
                 if reinit_rate:
@@ -589,11 +589,11 @@ def f_RNN_trial_freq_train2(rnn, loss, stim_templates, params, rnn_out = {}):
                     rate_start = rate[:,-1].detach()
                     
                 # Compute the running loss every 10 steps
-                if ((n_rep) % 10) == 0:
+                if ((n_samp) % 10) == 0:
                     print('sample %d, rep %d, Loss %0.3f, Time %0.1fs' % (n_samp, n_rep, loss2.item(), time.time() - start_time))
             else:
                 # Compute the running loss every 10 steps
-                if ((n_rep) % 10) == 0:
+                if ((n_samp) % 10) == 0:
                     print('sample %d, Loss %0.3f, Time %0.1fs' % (n_samp, loss2.item(), time.time() - start_time))
 
     print('Done')
@@ -777,7 +777,7 @@ def f_RNN_test(rnn, loss, input_test, output_test, params, paradigm='freq'):
     
     rnn_out = {'rates':         rates.detach().cpu().numpy(),
                'input':         input1.detach().cpu().numpy(),
-               'target':        target.detach().cpu().numpy(),
+               'target':        target.detach().cpu().numpy(),  
                'target_idx':    target2.detach().cpu().numpy(),
                
                'output':        output.detach().cpu().numpy(),
@@ -891,7 +891,7 @@ def f_gen_dset(dparams, params, stim_templates, stim_sample='equal'):
     
     return data_out
 
-def f_trial_ave_ctx_pad(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = 2, post_dd = 2):
+def f_trial_ave_ctx_pad(rates4d_cut, trials_types_cut, pre_dd = 2, post_dd = 2):
     num_t, num_tr, num_run, num_cells = rates4d_cut.shape
     
     num_tr_ave = pre_dd + post_dd + 1
@@ -900,7 +900,7 @@ def f_trial_ave_ctx_pad(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = 2, po
     
     for n_run in range(num_run):
             
-        temp_ob = trials_test_oddball_ctx_cut[:,n_run]
+        temp_ob = trials_types_cut[:,n_run]
         
         temp_sum1 = np.zeros((num_t, num_tr_ave, num_cells))
         num_dd = 0
@@ -918,21 +918,21 @@ def f_trial_ave_ctx_pad(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = 2, po
     
     return temp_ave4d
 
-def f_trial_ave_ctx_pad2(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = 2, post_dd = 2):
+def f_trial_ave_ctx_pad2(rates4d_cut, trials_types_cut, pre_dd = 2, post_dd = 2):
     num_t, num_tr, num_run, num_cells = rates4d_cut.shape
     
     num_tr_ave = pre_dd + post_dd + 1
     
     temp_ave4d = np.zeros((num_t, num_tr_ave, num_run, num_cells))
     
-    max_dd_trials = np.max(np.sum(trials_test_oddball_ctx_cut, axis=0))
+    max_dd_trials = np.max(np.sum(trials_types_cut, axis=0))
     
     num_dd_trials = np.zeros((num_run))
     trial_data_sort = np.zeros((num_t, num_tr_ave, max_dd_trials, num_run, num_cells))
     
     for n_run in range(num_run):
             
-        temp_ob = trials_test_oddball_ctx_cut[:,n_run]
+        temp_ob = trials_types_cut[:,n_run]
         
         temp_sum1 = np.zeros((num_t, num_tr_ave, num_cells))
         num_dd = 0
@@ -952,8 +952,103 @@ def f_trial_ave_ctx_pad2(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = 2, p
         temp_ave4d[:,:,n_run,:] = temp_sum1/num_dd
     
     return temp_ave4d, trial_data_sort, num_dd_trials
+
+
+
+def f_trial_sort_data_pad(rates4d_cut, trials_types_cut, pre_trials = 2, post_trials = 2):
+    # get trial ave and sorted single trial data with more trials
     
-def f_trial_ave_ctx_rd(rates4d_cut, trials_test_oddball_ctx_cut, params):
+    num_t, num_tr, num_run, num_cells = rates4d_cut.shape
+    
+    num_tr_ave = pre_trials + post_trials + 1
+    
+    trials_per_run = num_tr - pre_trials - post_trials
+    
+    trial_data_sort = np.zeros((num_t, num_tr_ave, trials_per_run, num_run, num_cells))
+    trial_types_pad = np.zeros((num_tr_ave, trials_per_run, num_run))
+    for n_run in range(num_run):
+            
+        for n_tr in range(pre_trials, num_tr-post_trials):
+            trial_data_sort[:,:,n_tr-pre_trials,n_run,:] = rates4d_cut[:,(n_tr-pre_trials):(n_tr+post_trials+1),n_run,:]
+            trial_types_pad[:,n_tr-pre_trials,n_run] = trials_types_cut[(n_tr-pre_trials):(n_tr+post_trials+1),n_run]
+    
+    trials_types_out = trials_types_cut[pre_trials:-post_trials,:]
+    
+    trial_data_sort4d = np.reshape(trial_data_sort, (num_t*num_tr_ave, trials_per_run, num_run, num_cells), order = 'F')
+    trial_types_pad2d = np.reshape(trial_types_pad, (num_tr_ave, trials_per_run, num_run), order = 'F')
+    
+    return trial_data_sort4d, trials_types_out, trial_types_pad2d
+
+def f_trial_sort_data_ctx_pad(rates4d_in, trials_types_in, pre_trials = 2, post_trials = 2):
+    # get trial ave and sorted single trial data with more trials
+    # zero  trials get thrown away
+    
+    num_t, num_tr, num_run, num_cells = rates4d_in.shape
+    num_tr_ave = pre_trials + post_trials + 1
+    
+    trials_per_run = num_tr - pre_trials - post_trials
+    
+    trial_data_sort = []
+    num_dd_trials = np.zeros((num_run))
+  
+    for n_run in range(num_run):
+        
+        num_dd_trials2 = np.sum(trials_types_in[pre_trials:-post_trials, n_run]).astype(int)
+        
+        trial_data_sort2 = np.zeros((num_t, num_tr_ave, num_dd_trials2, num_cells))
+        
+        n_dd = 0
+        for n_tr in range(pre_trials, num_tr-post_trials):
+            if trials_types_in[n_tr, n_run]:
+                trial_data_sort2[:,:,n_dd,:] = rates4d_in[:,(n_tr-pre_trials):(n_tr+post_trials+1),n_run,:]
+                n_dd += 1
+        
+        trial_data_sort24d = np.reshape(trial_data_sort2, (num_t*num_tr_ave, num_dd_trials2, num_cells), order = 'F')
+        
+        num_dd_trials[n_run] = num_dd_trials2
+        trial_data_sort.append(trial_data_sort24d)
+        
+    return trial_data_sort, num_dd_trials
+
+
+def f_trial_ave_pad(rates4d_cut, trials_types_cut, pre_dd = 2, post_dd = 2):
+    # get trial ave and sorted single trial data with more trials
+    
+    num_t, num_tr, num_run, num_cells = rates4d_cut.shape
+    
+    num_tr_ave = pre_dd + post_dd + 1
+    
+    temp_ave4d = np.zeros((num_t, num_tr_ave, num_run, num_cells))
+    
+    max_dd_trials = np.max(np.sum(trials_types_cut, axis=0))
+    
+    num_dd_trials = np.zeros((num_run))
+    trial_data_sort = np.zeros((num_t, num_tr_ave, max_dd_trials, num_run, num_cells))
+    
+    for n_run in range(num_run):
+            
+        temp_ob = trials_types_cut[:,n_run]
+        
+        temp_sum1 = np.zeros((num_t, num_tr_ave, num_cells))
+        num_dd = 0
+        
+        for n_tr in range(pre_dd, num_tr-post_dd):
+            
+            if temp_ob[n_tr]: # if currently on dd trial
+                
+                if np.sum(temp_ob[n_tr-pre_dd:n_tr+post_dd+1]) == 1: # if only 1 dd in vicinity
+                    
+                    trial_data_sort[:,:,num_dd,n_run,:] = rates4d_cut[:, n_tr-pre_dd:n_tr+post_dd+1, n_run, :]
+                    num_dd_trials[n_run] +=1
+                    
+                    num_dd += 1
+                    temp_sum1 += rates4d_cut[:, n_tr-pre_dd:n_tr+post_dd+1, n_run, :]
+                    
+        temp_ave4d[:,:,n_run,:] = temp_sum1/num_dd
+    
+    return temp_ave4d, trial_data_sort, num_dd_trials
+
+def f_trial_ave_ctx_rd(rates4d_cut, trials_types_cut, params):
     num_t, num_tr, num_run, num_cells = rates4d_cut.shape
     
     if params['num_ctx'] == 1:
@@ -964,10 +1059,10 @@ def f_trial_ave_ctx_rd(rates4d_cut, trials_test_oddball_ctx_cut, params):
     trial_ave_rd = np.zeros((2, num_t, num_run, num_cells))
     
     for n_run in range(num_run):
-        idx1 = trials_test_oddball_ctx_cut[:,n_run] == 0+ctx_pad1
+        idx1 = trials_types_cut[:,n_run] == 0+ctx_pad1
         trial_ave_rd[0,:,n_run,:] = np.mean(rates4d_cut[:,idx1,n_run,:], axis=1)
         
-        idx1 = trials_test_oddball_ctx_cut[:,n_run] == 1+ctx_pad1
+        idx1 = trials_types_cut[:,n_run] == 1+ctx_pad1
         trial_ave_rd[1,:,n_run,:] = np.mean(rates4d_cut[:,idx1,n_run,:], axis=1)
     
     return trial_ave_rd

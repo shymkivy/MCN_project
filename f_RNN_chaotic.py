@@ -13,15 +13,15 @@ import torch.nn as nn
 #%%
 
 class RNN_chaotic(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size_freq, output_size_ctx, alpha, activation='tanh'): # , device='cpu'
+    def __init__(self, input_size, hidden_size, output_size_freq, output_size_ctx, alpha, add_noise, activation='tanh'): # 
         super(RNN_chaotic, self).__init__()
         
+        self.add_noise = add_noise
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.output_size = output_size_freq
         self.output_size_ctx = output_size_ctx
         self.alpha = alpha
-        #self.device = device
         self.i2h = nn.Linear(input_size, hidden_size)   #, device=self.device
         self.h2h = nn.Linear(hidden_size, hidden_size)  #, device=self.device
         self.h2o = nn.Linear(hidden_size, output_size_freq) #, device=self.device
@@ -37,6 +37,7 @@ class RNN_chaotic(nn.Module):
     def init_weights(self, g):
         
         std1 = g/np.sqrt(self.hidden_size);
+        self.sigma_rec = std1
         
         # recurrent
         wh2h = self.h2h.weight.data
@@ -77,7 +78,13 @@ class RNN_chaotic(nn.Module):
         
     def recurrence(self, input_sig, rate):
         # can try relu here
-        rate_new = self.activ(self.i2h(input_sig) + self.h2h(rate))
+        
+        if self.add_noise:
+            noise1 = torch.randn(rate.shape).to(input_sig.device.type)*np.sqrt(2*self.sigma_rec**2/self.alpha)
+        else:
+            noise1 = 0
+        
+        rate_new = self.activ(self.i2h(input_sig) + self.h2h(rate)+noise1)
         rate_new = (1-self.alpha)*rate + self.alpha*rate_new
         
         return rate_new

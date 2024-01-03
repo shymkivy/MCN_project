@@ -485,3 +485,33 @@ def f_plot_train_test_loss(train_out, test_out_cont, test_out_ob, name_tag1, nam
     
 #     plt.figure()
 #     plt.plot(input_mat.std(axis=0))
+
+#%% decoder make cross validation groups
+
+
+def f_make_cv_groups(num_trials, num_cv_groups):
+    
+    cv_tr_idx = np.arange(num_trials)
+    np.random.shuffle(cv_tr_idx)  
+    
+    test_groups = np.zeros((num_cv_groups, num_trials), dtype=bool)
+    
+    for n_cv in range(num_cv_groups):
+    
+        start1 = np.floor(n_cv*(num_trials/num_cv_groups)).astype(int)
+        end1 = np.floor((n_cv+1)*(num_trials/num_cv_groups)).astype(int)
+        
+        test_groups[n_cv][cv_tr_idx[start1:end1]] = 1
+    
+    return test_groups
+
+
+
+
+
+
+
+
+
+
+
