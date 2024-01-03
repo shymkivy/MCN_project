@@ -59,54 +59,6 @@ from scipy import linalg
 
 from datetime import datetime
 
-#%% params
-load_RNN = 1
-plot_deets = 1
-
-#%% input params
-
-params = {'train_type':                     'freq2',     #   oddball2, freq2  standard, linear, oddball, freq_oddball,
-          'device':                         'cuda',         # 'cpu', 'cuda'
-          
-          'stim_duration':                  0.5,
-          'isi_duration':                   0.5,
-          'num_freq_stim':                  50,
-          'num_ctx':                        1,
-          'oddball_stim':                   np.arange(50)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
-          'dd_frac':                        0.1,
-          'dt':                             0.05,
-          
-          'train_batch_size':               100,
-          'train_trials_in_sample':         20,
-          'train_num_samples':              40000,
-          'train_loss_weights':             [0.05, 0.95], # isi, red, dd [1e-5, 1e-5, 1] [0.05, 0.05, 0.9], [0.05, 0.95]  [1/.5, 1/.45, 1/0.05]
-          'train_add_noise':                1,               # sqrt(2*dt/tau*sigma_req^2) * norm(0,1)
-
-          'train_repeats_per_samp':         1,
-          'train_reinit_rate':              0,
-          
-          'test_batch_size':                100,
-          'test_trials_in_sample':          400,
-          'test_oddball_stim':              np.arange(10)+1,        #[3, 5, 7],
-          'test_num_freq_stim':             10,
-          
-          'input_size':                     50,
-          'hidden_size':                    25,            # number of RNN neurons
-          'g':                              1,  # 1            # recurrent connection strength 
-          'tau':                            .5,
-          'learning_rate':                  0.001,           # 0.005
-          'activation':                     'ReLU',             # ReLU tanh
-          'normalize_input':                False,
-          
-          'stim_t_std':                     3,              # 3 or 0
-          'input_noise_std':                1/100,
-          
-          'plot_deets':                     0,
-          }
-
-now1 = datetime.now()
-
-params['train_date'] = now1
 
 #%%
 
@@ -161,11 +113,11 @@ fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20tria
 #fname_RNN_save = '50k_20stim_std3'
 
 #%%
-if load_RNN:
-    params = np.load(path1 + '/RNN_data/' + fname_RNN_load[:-4] + '_params.npy', allow_pickle=True).item()
+
+params = np.load(path1 + '/RNN_data/' + fname_RNN_load[:-4] + '_params.npy', allow_pickle=True).item()
 
 #%%
-
+now1 = datetime.now()
 if 'train_date' in params.keys():
     now2 = params['train_date']
 else:
@@ -191,10 +143,7 @@ fname_RNN_save = name_tag
 #plt.close('all')
 
 # generate stim templates
-
-
 stim_templates = f_gen_stim_output_templates(params)
-
 trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'])
 
 # shape (seq_len, batch_size, input_size/output_size, num_samples)
@@ -213,10 +162,8 @@ trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'
 #input_train_oddball, output_train_oddball_freq = f_gen_input_output_from_seq(trials_train_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
 #_, output_train_oddball_ctx = f_gen_input_output_from_seq(trials_train_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
 
-#%% initialize RNN 
 
-if 'device' not in params.keys():
-    params['device'] = 'cpu'
+#%% initialize RNN 
 
 output_size = params['num_freq_stim'] + 1
 output_size_ctx = params['num_ctx'] + 1
@@ -251,58 +198,18 @@ loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor(params['train_loss_weights'
 train_out = {}     # initialize outputs, so they are saved when process breaks
 
 #%%
-if load_RNN:
-    print('Loading RNN %s' % fname_RNN_load)
-    rnn.load_state_dict(torch.load(path1 + '/RNN_data/' + fname_RNN_load))
+print('Loading RNN %s' % fname_RNN_load)
+rnn.load_state_dict(torch.load(path1 + '/RNN_data/' + fname_RNN_load))
+
+train_out = np.load(path1 + '/RNN_data/' + fname_RNN_load[:-4] + '_train_out.npy', allow_pickle=True).item()
 
 #%%
-if not load_RNN:
-    if params['train_type'] == 'oddball2':
-        
-        f_RNN_trial_ctx_train2(rnn, loss_ctx, stim_templates, params, train_out)
-        
-    elif params['train_type'] == 'freq2':
-        
-        f_RNN_trial_freq_train2(rnn, loss_freq, stim_templates, params, train_out)
-        
-    # elif params['train_type'] == 'standard':
-    #     train_out = f_RNN_trial_train(rnn, loss, input_train_cont, output_train_cont, params)
-    # elif params['train_type'] == 'freq_oddball':
-    #     train_out = f_RNN_trial_freq_ctx_train(rnn, loss, loss_ctx, input_train_oddball, output_train_oddball_freq, output_train_oddball_ctx, params)
-    # elif params['train_type'] == 'oddball':
-    #     train_out = f_RNN_trial_ctx_train(rnn, loss_ctx, input_train_oddball, output_train_oddball_ctx, params)
-        
-    #     #train_cont = f_RNN_trial_ctx_train(rnn, loss, input_train_oddball_freq, output_train_oddball_freq, output_train_oddball_ctx, params)
-
-    # else:
-    #     train_out = f_RNN_linear_train(rnn, loss, input_train_cont, output_train_cont, params)
-        
-else:
-    print('running without training')
-    #train_out_cont = f_RNN_test(rnn, loss, input_train_cont, output_train_cont, params)
-    
-#%%
-if load_RNN:
-    train_out = np.load(path1 + '/RNN_data/' + fname_RNN_load[:-4] + '_train_out.npy', allow_pickle=True).item()
-
-#%%
-#plt.close('all')
 figs = f_plot_train_loss(train_out, name_tag1, name_tag2)
-    
-# f_plot_rates(rates_all[:,:, 1], 10)
-
+  
 #%%
-if not load_RNN:
-    print('Saving RNN %s' % fname_RNN_save)
-    torch.save(rnn.state_dict(), path1 + '/RNN_data/' + fname_RNN_save  + '_RNN')
-    np.save(path1 + '/RNN_data/' + fname_RNN_save + '_params.npy', params) 
-    np.save(path1 + '/RNN_data/' + fname_RNN_save + '_train_out.npy', train_out) 
-    
-    for key1 in figs.keys():
-        figs[key1].savefig(path1 + '/RNN_data/' + fname_RNN_save + '_' + key1 + '.png', dpi=1200)
 
-#%%
 params['device'] = 'cpu';
+
 rnn.cpu()
 
 rnn0.cpu()
@@ -3431,5 +3338,9 @@ plt.ylim([-0.013, 0.023])
 #     x_lab = np.arange(num_stim) - n_st
 
 #     plt.plot(x_lab, pop_ave)
+
+
+
+
 
 
