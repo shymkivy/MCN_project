@@ -23,13 +23,17 @@ sys.path.append(path1 + 'RNN_scripts')
 import time
 
 from f_analysis import f_plot_rates2, f_plot_rates_only # seriation, 
-from f_RNN import f_RNN_trial_ctx_train2, f_RNN_trial_freq_train2, f_RNN_test, f_RNN_test_spont, f_gen_dset, f_trial_ave_ctx_pad, f_trial_ave_ctx_pad2, f_trial_sort_data_pad, f_trial_sort_data_ctx_pad, f_run_dred, f_plot_dred_rates, f_plot_traj_speed, f_plot_resp_distances, f_plot_mmn, f_plot_dred_pcs, f_plot_rnn_weights#, f_trial_ave_pad
+from f_RNN import f_RNN_test, f_RNN_test_spont, f_gen_ob_dset, f_gen_cont_dset #, f_trial_ave_pad, f_gen_equal_freq_space
+from f_RNN_process import f_trial_ave_ctx_pad, f_trial_ave_ctx_pad2, f_trial_sort_data_pad, f_trial_sort_data_ctx_pad, f_label_redundants, f_get_rdc_trav
+from f_RNN_dred import f_run_dred
+from f_RNN_plots import f_plot_dred_rates, f_plot_dred_rates2, f_plot_dred_rates3, f_plot_dred_rates3d, f_plot_traj_speed, f_plot_resp_distances, f_plot_mmn, f_plot_mmn2, f_plot_mmn_dist, f_plot_mmn_freq, f_plot_dred_pcs, f_plot_rnn_weights2, f_plot_run_dist
 from f_RNN_chaotic import RNN_chaotic
-from f_RNN_utils import f_gen_stim_output_templates, f_gen_cont_seq, f_gen_oddball_seq, f_gen_input_output_from_seq, f_plot_examle_inputs, f_plot_train_loss, f_plot_train_test_loss, f_make_cv_groups
-
+from f_RNN_utils import f_gen_stim_output_templates, f_gen_cont_seq, f_gen_oddball_seq, f_gen_input_output_from_seq, f_plot_examle_inputs, f_plot_train_loss, f_plot_train_test_loss, f_gen_name_tag, f_reshape_rates, f_plot_exp_var, f_plot_freq_space_distances_control, f_plot_freq_space_distances_oddball
+from f_RNN_decoder import f_make_cv_groups, f_sample_trial_data_dec, f_run_binwise_dec, f_plot_binwise_dec, f_run_one_shot_dec, f_plot_one_shot_dec_bycat, f_plot_one_shot_dec_iscat
 
 import numpy as np
 import matplotlib.pyplot as plt
+#import matplotlib.patches as patches
 #from matplotlib import gridspec
 #from matplotlib import colors
 import matplotlib.cm as cm
@@ -37,27 +41,23 @@ import matplotlib.cm as cm
 import torch
 import torch.nn as nn
 
-
 sys.path.append(path1 + '../' + 'python_dependencies/dPCA-master/python/dPCA')
 from dPCA import dPCA
 
-
-
 from sklearn.decomposition import PCA
 from sklearn import svm
-from sklearn.model_selection import cross_val_score #, ShuffleSplit, train_test_split
+#from sklearn.model_selection import cross_val_score #, ShuffleSplit, train_test_split
 #from sklearn.metrics.pairwise import cosine_similarity
 #from sklearn.cluster import AgglomerativeClustering
 from sklearn.manifold import Isomap
 #from scipy.cluster.hierarchy import dendrogram, linkage
-from scipy.spatial.distance import pdist #, cdist, squareform
+from scipy.spatial.distance import pdist, squareform #, cdist, squareform
 #from scipy.sparse import diags
 #from scipy import signal
 from scipy import linalg
 #from scipy.io import loadmat, savemat
 #import skimage.io
 
-from datetime import datetime
 
 
 #%%
@@ -65,48 +65,51 @@ from datetime import datetime
 #fname_RNN_load = 'test_20k_std3'
 #fname_RNN_load = '50k_20stim_std3';
 
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_5_28_13h_15m_RNN'                            # 2 ctx     no train out ;no activation in params (tanh)
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_5_28_22h_32m_RNN'                            # 2 ctx     no activation in params (tanh)
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_5_28_22h_33m_RNN'                            # 2 ctx     no activation in params (tanh)
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_6_5_0h_35m_RNN'                              # 2 ctx     no activation in params (tanh)
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_ReLU_20trials_10stim_64batch_0.0010lr_2023_6_16_11h_6m_RNN'                        # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_ReLU_20trials_10stim_64batch_0.0010lr_2023_6_17_15h_18m_RNN'                       # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_40000train_samp_ReLU_20trials_10stim_64batch_0.0010lr_2023_6_19_12h_12m_RNN'                       # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_40000train_samp_ReLU_20trials_20stim_64batch_0.0010lr_2023_6_20_12h_23m_RNN'                       # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0010lr_2023_6_27_13h_44m_RNN'                       # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0010lr_2023_6_28_14h_22m_RNN'                       # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0010lr_2023_6_28_16h_31m_RNN'                       # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0050lr_2023_6_30_12h_30m_RNN'                       # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0100lr_2023_6_30_15h_11m_RNN'                       # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_20000trainsamp_10neurons_tanh_20trials_10stim_64batch_0.0100lr_2023_7_3_10h_18m_RNN'               # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_20000trainsamp_20neurons_ReLU_20trials_10stim_64batch_0.0050lr_2023_7_9_14h_12m_RNN'               # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_20000trainsamp_20neurons_tanh_20trials_10stim_64batch_0.0050lr_2023_7_13_14h_8m_RNN'               # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_30000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0020lr_2023_7_15_14h_42m_RNN'              # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0010lr_2023_7_15_21h_49m_RNN'              # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0020lr_2023_7_17_9h_24m_RNN'               # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_50stim_64batch_0.0020lr_2023_7_30_21h_33m_RNN'              # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_50stim_64batch_0.0010lr_2023_7_31_13h_14m_RNN'              # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_50stim_200batch_0.0010lr_2023_7_31_16h_10m_RNN'             # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_60000trainsamp_25neurons_ReLU_20trials_50stim_200batch_0.0010lr_2023_8_4_17h_41m_RNN'              # 2 ctx
-#fname_RNN_load = 'oddball2_2ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_5_13h_59m_RNN'              # 2 ctx dset, V shaped learning curve, there is dd axis, not bad
-#fname_RNN_load = 'oddball2_1ctx_20000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_14_13h_42m_RNN'             # high loss.... 1 ctx, but still 2 stepish like learning curce
-#fname_RNN_load = 'oddball2_2ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_15_13h_23m_RNN'             # 2 ctx dist not desired
-#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_16_18h_48m_RNN'             # 1 ctx, exp decay curve, 1 step
-#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.50tau_20trials_50stim_100batch_0.0010lr_2023_9_11_14h_19m_RNN'     # 1 ctx, tau=0.5
-#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.10tau_20trials_50stim_100batch_0.0010lr_2023_9_13_11h_41m_RNN'     # 1 ctx, tau=0.1
-#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_1.00tau_20trials_50stim_100batch_0.0010lr_2023_9_14_11h_58m_RNN'     # 1 ctx, tau=1
-#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_2.00tau_20trials_50stim_100batch_0.0010lr_2023_9_15_12h_18m_RNN'     # 1 ctx, tau=2
-#fname_RNN_load = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_1.00tau_20trials_50stim_100batch_0.0010lr_2023_9_16_13h_10m_RNN'    # 1 ctx, tau=1
-#fname_RNN_load = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_0.30tau_20trials_50stim_100batch_0.0010lr_2023_9_17_14h_33m_RNN'    # 1 ctx, tau=.3
-#fname_RNN_load = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_0.40tau_20trials_50stim_100batch_0.0010lr_2023_9_18_9h_17m_RNN'     # 1 ctx, tau=.4
-#fname_RNN_load = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_0.10tau_20trials_50stim_100batch_0.0010lr_2023_9_18_16h_17m_RNN'    # 1 ctx, tau=.1
-#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_50tau_5dt_20trials_50stim_100batch_0.0010lr_2023_9_21_11h_15m_RNN'    # 1 ctx, tau=.05
-#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_4_17h_16m_RNN'    # 1 ctx, tau=.5
-#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_5_10h_54m_RNN'    # 1 ctx, tau=.5
-#fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_6_17h_3m_RNN'    # 1 ctx, tau=.5
-fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_noise1_2023_12_19_16h_20m_RNN'    # 1 ctx, tau- .5 with nouse
-#fname_RNN_load = 'freq2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_noise0_2023_12_20_0h_34m_RNN'      # freq train no noise
-#fname_RNN_load = 'freq2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_noise1_2023_12_20_0h_34m_RNN'      # freq train with noise
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_5_28_13h_15m_RNN'                            # 2 ctx     no train out ;no activation in params (tanh)
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_5_28_22h_32m_RNN'                            # 2 ctx     no activation in params (tanh)
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_5_28_22h_33m_RNN'                            # 2 ctx     no activation in params (tanh)
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_20trials_10stim_64batch_0.0010lr_2023_6_5_0h_35m_RNN'                              # 2 ctx     no activation in params (tanh)
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_ReLU_20trials_10stim_64batch_0.0010lr_2023_6_16_11h_6m_RNN'                        # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_ReLU_20trials_10stim_64batch_0.0010lr_2023_6_17_15h_18m_RNN'                       # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_40000train_samp_ReLU_20trials_10stim_64batch_0.0010lr_2023_6_19_12h_12m_RNN'                       # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_40000train_samp_ReLU_20trials_20stim_64batch_0.0010lr_2023_6_20_12h_23m_RNN'                       # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0010lr_2023_6_27_13h_44m_RNN'                       # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0010lr_2023_6_28_14h_22m_RNN'                       # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0010lr_2023_6_28_16h_31m_RNN'                       # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0050lr_2023_6_30_12h_30m_RNN'                       # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_20000train_samp_tanh_20trials_10stim_64batch_0.0100lr_2023_6_30_15h_11m_RNN'                       # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_20000trainsamp_10neurons_tanh_20trials_10stim_64batch_0.0100lr_2023_7_3_10h_18m_RNN'               # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_20000trainsamp_20neurons_ReLU_20trials_10stim_64batch_0.0050lr_2023_7_9_14h_12m_RNN'               # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_20000trainsamp_20neurons_tanh_20trials_10stim_64batch_0.0050lr_2023_7_13_14h_8m_RNN'               # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_30000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0020lr_2023_7_15_14h_42m_RNN'              # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0010lr_2023_7_15_21h_49m_RNN'              # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_10stim_64batch_0.0020lr_2023_7_17_9h_24m_RNN'               # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_50stim_64batch_0.0020lr_2023_7_30_21h_33m_RNN'              # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_50stim_64batch_0.0010lr_2023_7_31_13h_14m_RNN'              # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_40000trainsamp_25neurons_ReLU_20trials_50stim_200batch_0.0010lr_2023_7_31_16h_10m_RNN'             # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_60000trainsamp_25neurons_ReLU_20trials_50stim_200batch_0.0010lr_2023_8_4_17h_41m_RNN'              # 2 ctx
+#fname_RNN_ob = 'oddball2_2ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_5_13h_59m_RNN'              # 2 ctx dset, V shaped learning curve, there is dd axis, not bad
+#fname_RNN_ob = 'oddball2_1ctx_20000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_14_13h_42m_RNN'             # high loss.... 1 ctx, but still 2 stepish like learning curce
+#fname_RNN_ob = 'oddball2_2ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_15_13h_23m_RNN'             # 2 ctx dist not desired
+#fname_RNN_ob = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_20trials_50stim_100batch_0.0010lr_2023_8_16_18h_48m_RNN'             # 1 ctx, exp decay curve, 1 step
+#fname_RNN_ob = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.50tau_20trials_50stim_100batch_0.0010lr_2023_9_11_14h_19m_RNN'     # 1 ctx, tau=0.5
+#fname_RNN_ob = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_0.10tau_20trials_50stim_100batch_0.0010lr_2023_9_13_11h_41m_RNN'     # 1 ctx, tau=0.1
+#fname_RNN_ob = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_1.00tau_20trials_50stim_100batch_0.0010lr_2023_9_14_11h_58m_RNN'     # 1 ctx, tau=1
+#fname_RNN_ob = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_2.00tau_20trials_50stim_100batch_0.0010lr_2023_9_15_12h_18m_RNN'     # 1 ctx, tau=2
+#fname_RNN_ob = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_1.00tau_20trials_50stim_100batch_0.0010lr_2023_9_16_13h_10m_RNN'    # 1 ctx, tau=1
+#fname_RNN_ob = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_0.30tau_20trials_50stim_100batch_0.0010lr_2023_9_17_14h_33m_RNN'    # 1 ctx, tau=.3
+#fname_RNN_ob = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_0.40tau_20trials_50stim_100batch_0.0010lr_2023_9_18_9h_17m_RNN'     # 1 ctx, tau=.4
+#fname_RNN_ob = 'oddball2_1ctx_160000trainsamp_25neurons_ReLU_0.10tau_20trials_50stim_100batch_0.0010lr_2023_9_18_16h_17m_RNN'    # 1 ctx, tau=.1
+#fname_RNN_ob = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_50tau_5dt_20trials_50stim_100batch_0.0010lr_2023_9_21_11h_15m_RNN'    # 1 ctx, tau=.05
+#fname_RNN_ob = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_4_17h_16m_RNN'    # 1 ctx, tau=.5
+#fname_RNN_ob = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_5_10h_54m_RNN'    # 1 ctx, tau=.5
+#fname_RNN_ob = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_2023_10_6_17h_3m_RNN'    # 1 ctx, tau=.5
+fname_RNN_ob = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_noise1_2023_12_19_16h_20m_RNN'    # 1 ctx, tau- .5 with nouse
+
+
+
+#fname_RNN_freq = 'freq2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_noise0_2023_12_20_0h_34m_RNN'      # freq train no noise
+fname_RNN_freq = 'freq2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_0.0010lr_noise1_2023_12_20_0h_34m_RNN'      # freq train with noise
 
 
 #fname_RNN_save = 'test_50k_std4'
@@ -114,29 +117,27 @@ fname_RNN_load = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20tria
 
 #%%
 
-params = np.load(path1 + '/RNN_data/' + fname_RNN_load[:-4] + '_params.npy', allow_pickle=True).item()
+params = np.load(path1 + '/RNN_data/' + fname_RNN_ob[:-4] + '_params.npy', allow_pickle=True).item()
 
+params_freq = np.load(path1 + '/RNN_data/' + fname_RNN_freq[:-4] + '_params.npy', allow_pickle=True).item()
+
+if 'train_add_noise' not in params.keys():
+    params['train_add_noise'] = 0
+    
+if 'train_add_noise' not in params_freq.keys():
+    params_freq['train_add_noise'] = 0
+ 
 #%%
-now1 = datetime.now()
-if 'train_date' in params.keys():
-    now2 = params['train_date']
-else:
-    now2 = now1
-if 'activation' not in params.keys():
-    params['activation'] = 'tanh'
-        
 
-save_tag = ''
-
-name_tag1 = '%s%s_%dctx_%dtrainsamp_%dneurons_%s_%dtau_%ddt' % (save_tag, params['train_type'], params['num_ctx'],
-            params['train_num_samples'], params['hidden_size'], params['activation'], params['tau']*1000, params['dt']*1000)
-
-name_tag2 = '%dtrials_%dstim_%dbatch_%.4flr_noise%d_%d_%d_%d_%dh_%dm' % (params['train_trials_in_sample'], params['num_freq_stim'], params['train_batch_size'], params['learning_rate'], params['train_add_noise'],
-             now2.year, now2.month, now2.day, now2.hour, now2.minute)
+name_tag1, name_tag2 = f_gen_name_tag(params)
 
 name_tag  = name_tag1 + '_' + name_tag2
-
 fname_RNN_save = name_tag
+
+
+name_tag1_freq, name_tag2_freq = f_gen_name_tag(params_freq)
+
+name_tag_freq  = name_tag1_freq + '_' + name_tag2_freq
 
 #%% generate train data
 
@@ -177,8 +178,8 @@ rnn.init_weights(params['g'])
 rnn0 = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, params['train_add_noise'], activation=params['activation']).to('cpu')
 rnn0.init_weights(params['g'])
 
-rnn0c = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, params['train_add_noise'], activation=params['activation']).to('cpu')
-rnn0c.init_weights(params['g'])
+rnnf = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, params['train_add_noise'], activation=params['activation']).to(params_freq['device'])
+rnnf.init_weights(params['g'])
 
 #%%
 if 'train_loss_weights' not in params.keys():
@@ -195,139 +196,33 @@ loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor(params['train_loss_weights'
 # else:
 #     loss_ctx = nn.BCELoss(weight = torch.tensor(params['train_loss_weights']).to(params['device']))
 
-train_out = {}     # initialize outputs, so they are saved when process breaks
-
 #%%
-print('Loading RNN %s' % fname_RNN_load)
-rnn.load_state_dict(torch.load(path1 + '/RNN_data/' + fname_RNN_load))
+print('Loading RNN %s' % fname_RNN_ob)
+rnn.load_state_dict(torch.load(path1 + '/RNN_data/' + fname_RNN_ob))
 
-train_out = np.load(path1 + '/RNN_data/' + fname_RNN_load[:-4] + '_train_out.npy', allow_pickle=True).item()
+train_out = np.load(path1 + '/RNN_data/' + fname_RNN_ob[:-4] + '_train_out.npy', allow_pickle=True).item()
+
+print('Loading RNN %s' % fname_RNN_freq)
+rnnf.load_state_dict(torch.load(path1 + '/RNN_data/' + fname_RNN_freq))
+
+train_out_freq = np.load(path1 + '/RNN_data/' + fname_RNN_freq[:-4] + '_train_out.npy', allow_pickle=True).item()
+
 
 #%%
 figs = f_plot_train_loss(train_out, name_tag1, name_tag2)
+
+figs = f_plot_train_loss(train_out_freq, name_tag1_freq, name_tag2_freq)
   
 #%%
-
-params['device'] = 'cpu';
+params['device'] = 'cpu'
+params_freq['device'] = 'cpu'
 
 rnn.cpu()
-
+rnnf.cpu()
 rnn0.cpu()
-
-rnn0c.cpu()
 
 loss_freq.cpu()
 loss_ctx.cpu()
-
-#%% gen test data
-# test control trials
-#trials_test_cont = f_gen_cont_seq(params['num_freq_stim'], params['test_trials_in_sample'], params['test_batch_size'], 1)
-
-if 'test_num_freq_stim' not in params.keys():
-    params['test_num_freq_stim'] = 10
-
-test_cont_stim = np.round(np.linspace(1, params['num_freq_stim'], params['test_num_freq_stim'])).astype(int)
-trials_test_cont_idx = f_gen_cont_seq(params['test_num_freq_stim'], params['test_trials_in_sample'], params['test_batch_size'], 1)-1
-trials_test_cont = test_cont_stim[trials_test_cont_idx]
-
-input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_templates['freq_input'], stim_templates['freq_output'], params)
-
-#%%
-# plt.close('all')
-f_plot_examle_inputs(input_test_cont, output_test_cont, params, 1)
-
-#%% test
-test_cont_freq = f_RNN_test(rnn, loss_freq, input_test_cont, output_test_cont, params, paradigm='freq')
-
-#%%
-#dev_stim = (np.array([3, 6])/10*params['num_freq_stim']).astype(int)
-#red_stim = (np.array([3, 6])/10*params['num_freq_stim']).astype(int)
-
-if 'test_num_freq_stim' not in params.keys():
-    params['test_num_freq_stim'] = 10
-
-dev_stim = ((np.arange(params['test_num_freq_stim'])+1)/params['test_num_freq_stim']*params['num_freq_stim']).astype(int)
-red_stim = ((np.arange(params['test_num_freq_stim'])+1)/params['test_num_freq_stim']*params['num_freq_stim']).astype(int)
-
-
-# test oddball trials
-trials_test_oddball_freq, trials_test_oddball_ctx, _ = f_gen_oddball_seq(dev_stim, red_stim, params['test_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['test_batch_size'], can_be_same = False)
-#trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq([5], params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['test_batch_size'], can_be_same = True)
-
-input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
-_, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
-
-#%%
-# plt.close('all')
-f_plot_examle_inputs(input_test_oddball, output_test_oddball_ctx, params, 5)
-
-f_plot_examle_inputs(input_test_oddball, output_test_oddball_freq, params, 5)
-
-#%%
-test_oddball_freq = f_RNN_test(rnn, loss_freq, input_test_oddball, output_test_oddball_freq, params, paradigm='freq')
-
-test_oddball_ctx = f_RNN_test(rnn, loss_ctx, input_test_oddball, output_test_oddball_ctx, params, paradigm='ctx')
-
-#%%
-# plt.close('all')
-f_plot_train_test_loss(train_out, test_cont_freq, test_oddball_ctx, name_tag1, name_tag2)
-
-#%% test long controls
-
-input_test_cont2 = input_test_cont.reshape((8000*100, 1, 50), order = 'F')
-output_test_cont2 = output_test_cont.reshape((8000*100, 1, 11), order = 'F')
-
-test_cont_freq2 = f_RNN_test(rnn, loss_freq, input_test_cont2, output_test_cont2, params, paradigm='freq')
-
-#%% test oddball
-
-input_test_oddball2 = input_test_oddball.reshape((8000*100, 1, 50), order = 'F')
-output_test_oddball_freq2 = output_test_oddball_freq.reshape((8000*100, 1, 11), order = 'F')
-output_test_oddball_ctx2 = output_test_oddball_ctx.reshape((8000*100, 1, 3), order = 'F')
-
-test_oddball_freq2 = f_RNN_test(rnn, loss_freq, input_test_oddball2, output_test_oddball_freq2, params, paradigm='freq')
-
-test_oddball_ctx2 = f_RNN_test(rnn, loss_ctx, input_test_oddball2, output_test_oddball_ctx2, params, paradigm='ctx')
-
-
-#%% test oddball
-
-#train_oddball = f_RNN_test(rnn, loss_ctx, input_train_oddball_freq, output_train_oddball_ctx, params)
-
-
-#%% add loss of final pass to train data
-
-T, batch_size, num_neurons = train_out['rates'].shape
-
-output2 = torch.tensor(train_out['output'])
-target2 =  torch.tensor(train_out['target_idx'])
-train_out['lossT'] = np.zeros((T, batch_size))
-for n_t in range(T):
-    for n_bt2 in range(batch_size):
-        train_out['lossT'][n_t, n_bt2] = loss_ctx(output2[n_t, n_bt2, :], target2[n_t, n_bt2].long()).item()
-
-# plot train data
-
-f_plot_rates2(train_out, 'train', num_plot_batches = 5)
-
-#%%
-
-f_plot_rates2(test_cont_freq, 'test_cont', num_plot_batches = 5)
-
-f_plot_rates2(test_oddball_freq, 'test_oddball_freq', num_plot_batches = 5)
-
-f_plot_rates2(test_oddball_ctx, 'test_oddball_ctx', num_plot_batches = 5)
-
-#%%
-#f_plot_rates(test_cont_freq, input_test_cont, output_test_cont, 'test cont')
-
-#f_plot_rates(test_oddball, input_test_oddball, output_test_oddball, 'test oddball')
-
-#%%
-
-#f_plot_rates(test_oddball_ctx, input_test_oddball, output_test_oddball_freq, 'test oddball')
-
-#f_plot_rates_ctx(test_oddball_ctx, input_test_oddball2, output_test_oddball_ctx2, 'test oddball')
 
 #%% create colormap jet 
 colors1 = cm.jet(np.linspace(0,1,params['num_freq_stim']))
@@ -338,89 +233,66 @@ if 0:
     plt.xticks([])
     
 #%% plot RNN params
-f_plot_rnn_weights(rnn, rnn0)
+# plt.close('all')
+f_plot_rnn_weights2([rnn, rnnf, rnn0], ('oddball trained', 'freq trained', 'untrained'))
 
 #%% create inputs
-dparams = {}
-
-dparams['num_trials'] = 400
-dparams['num_batch'] = 200
-dparams['num_dev_stim'] = 20
-dparams['num_red_stim'] = 20
-dparams['num_cont_freq_stim'] = 10
-
-num_skip_trials = 50
-
-do_rnn_zero = 1
-
 dred_subtr_mean = 0
 dred_met = 2
 
-trial_len = round((params['stim_duration'] + params['isi_duration']) / params['dt'])
-num_trials = dparams['num_trials']
-num_run = dparams['num_batch']
-num_trials2 = num_trials - num_skip_trials
+num_prepend_zeros = 100
+num_skip_trials = 90
 
+dparams = {}
 
+num_runs = 200
+num_trials_ob = 250
+num_dev_stim = 20
+num_red_stim = 20
+
+num_cont_trials = 850
+num_cont_runs = 10
+num_cont_stim = 20
+
+# oddball data
 params2 = params.copy()
+params2['dd_frac'] = 0.1
+
+ob_data1 = f_gen_ob_dset(params2, stim_templates, num_trials=num_trials_ob, num_runs=num_runs, num_freqs=params['num_freq_stim'], num_dev_stim=num_dev_stim, num_red_stim=num_red_stim, stim_sample='equal', ob_type='one_deviant', freq_selection='random', can_be_same = False, can_have_no_dd = True, prepend_zeros=num_prepend_zeros)       # stim_sample= 'random' or 'equal'; ob_type='one_deviant' or 'many_deviant', '100plus1'
+
+
+# const inputs data
 params3 = params.copy()
-
-params2['dd_frac'] = 0.02
-
-
-params3['isi_duration'] = 0
-params3['stim_duration'] = 1
+params3['isi_duration'] = 0.5  # for const set to zero
+params3['stim_duration'] = 0.5  # for const set to 1
 params3['dd_frac'] = 0
 
+num_const_stim = 50
 
-ob_data1 = f_gen_dset(dparams, params2, stim_templates, stim_sample='random')
-#ob_data1 = f_gen_dset(dparams, params2, stim_templates, stim_sample='equal')
-        
-
-trials_test_oddball_ctx_cut = ob_data1['trials_test_oddball_ctx'][num_skip_trials:,:]
-trials_test_oddball_freq_cut = ob_data1['trials_test_oddball_freq'][num_skip_trials:,:]
-
-stim_templates_mono = f_gen_stim_output_templates(params3)
-
-
-# make long constant sounds
-num_const_stim = 50 # params['num_freq_stim']
-red_stim_const = np.round(np.hstack((0,np.linspace(0,num_const_stim+1, num_const_stim+2)[1:-1]))).astype(int)
-
-trials_const_freq = (np.ones((dparams['num_trials'], red_stim_const.shape[0]))* red_stim_const.reshape((1,red_stim_const.shape[0]))).astype(int)
-trials_const_ctx = np.zeros((dparams['num_trials'], red_stim_const.shape[0]), dtype=int)
-
-trials_const_input, trials_const_output_freq = f_gen_input_output_from_seq(trials_const_freq, stim_templates_mono['freq_input'], stim_templates_mono['freq_output'], params2)
-_, trials_const_output_ctx = f_gen_input_output_from_seq(trials_const_ctx, stim_templates_mono['freq_input'], stim_templates_mono['ctx_output'], params2)
-
+stim_templates_const = f_gen_stim_output_templates(params3)
+ob_data_const = f_gen_ob_dset(params3, stim_templates_const, num_trials=num_trials_ob, num_runs=num_const_stim, num_freqs=params['num_freq_stim'], num_dev_stim=1, num_red_stim=num_const_stim, stim_sample='equal', ob_type='one_deviant', freq_selection='sequential', can_be_same = False, can_have_no_dd = True, prepend_zeros=num_prepend_zeros)       # stim_sample= 'random' or 'equal'; ob_type='one_deviant' or 'many_deviant', '100plus1'
 
 # make control data
-num_cont_batch = 10
-test_cont_stim = np.round(np.linspace(1, params['num_freq_stim'], dparams['num_cont_freq_stim'])).astype(int)
-trials_test_cont_idx = f_gen_cont_seq(dparams['num_cont_freq_stim'], dparams['num_trials'], num_cont_batch, 1)-1         # made batch = 1
-trials_test_cont = test_cont_stim[trials_test_cont_idx]
-trials_test_cont_cut = trials_test_cont[num_skip_trials:,:]
+cont_data = f_gen_cont_dset(params, stim_templates, num_trials=num_cont_trials, num_runs=num_cont_runs, num_cont_stim=num_cont_stim, num_freqs=params['num_freq_stim'], prepend_zeros=num_prepend_zeros)
 
-input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_templates['freq_input'], stim_templates['freq_output'], params)
+plt.figure()
+plt.imshow(cont_data['input_control'][:,0,:].T, aspect='auto')
 
 
 #%% run test data
 #test_oddball_freq = f_RNN_test(rnn, loss_freq, input_test_oddball, output_test_oddball_freq, params, paradigm='freq')
 
-test_oddball_ctx = f_RNN_test(rnn, loss_ctx, ob_data1['input_test_oddball'], ob_data1['output_test_oddball_ctx'], params, paradigm='ctx')
+test_oddball_ctx = f_RNN_test(rnn, loss_ctx, ob_data1['input_oddball'], ob_data1['target_oddball_ctx'], paradigm='ctx')
+testf_oddball_ctx = f_RNN_test(rnnf, loss_ctx, ob_data1['input_oddball'], ob_data1['target_oddball_ctx'], paradigm='ctx')
+test0_oddball_ctx = f_RNN_test(rnn0, loss_ctx, ob_data1['input_oddball'], ob_data1['target_oddball_ctx'], paradigm='ctx')
 
-if do_rnn_zero:
-    test0_oddball_ctx = f_RNN_test(rnn0, loss_ctx, ob_data1['input_test_oddball'], ob_data1['output_test_oddball_ctx'], params, paradigm='ctx')
+test_const_ctx = f_RNN_test(rnn, loss_ctx, ob_data_const['input_oddball'], ob_data_const['target_oddball_ctx'], paradigm='ctx')
+testf_const_ctx = f_RNN_test(rnnf, loss_ctx, ob_data_const['input_oddball'], ob_data_const['target_oddball_ctx'], paradigm='ctx')
+test0_const_ctx = f_RNN_test(rnn0, loss_ctx, ob_data_const['input_oddball'], ob_data_const['target_oddball_ctx'], paradigm='ctx')
 
-test_const_ctx = f_RNN_test(rnn, loss_ctx, trials_const_input, trials_const_output_ctx, params, paradigm='ctx')
-
-if do_rnn_zero:
-    test0_const_ctx = f_RNN_test(rnn0, loss_ctx, trials_const_input, trials_const_output_ctx, params, paradigm='ctx')
-
-test_cont_freq = f_RNN_test(rnn, loss_freq, input_test_cont, output_test_cont, params, paradigm='freq')
-
-if do_rnn_zero:
-    test_cont_freq0 = f_RNN_test(rnn0, loss_freq, input_test_cont, output_test_cont, params, paradigm='freq')
+test_cont_freq = f_RNN_test(rnn, loss_freq, cont_data['input_control'], cont_data['target_control'], paradigm='freq')
+testf_cont_freq = f_RNN_test(rnnf, loss_freq, cont_data['input_control'], cont_data['target_control'], paradigm='freq')
+test0_cont_freq = f_RNN_test(rnn0, loss_freq, cont_data['input_control'], cont_data['target_control'], paradigm='freq')
 
 
 #%% process test
@@ -428,521 +300,793 @@ if do_rnn_zero:
 # f_plot_rates_only(test_oddball_ctx, 'ctx', num_plot_batches = 1, num_plot_cells = 20, preprocess = True, norm_std_fac = 6, start_from = num_skip_trials*trial_len, plot_extra = 0)
 
 num_t, num_batch, num_cells = test_oddball_ctx['rates'].shape  #(8000, 100, 25)
-
-rates4d = np.reshape(test_oddball_ctx['rates'], (trial_len, num_trials, dparams['num_batch'], num_cells), order = 'F')
-rates4d_cut = rates4d[:,num_skip_trials:,:,:]
-
-rates_cut = np.reshape(rates4d_cut, (trial_len*num_trials2, num_run, num_cells), order = 'F')
-rates2d_cut = np.reshape(rates_cut, (trial_len*num_trials2*num_run, num_cells), order = 'F')
-
-if do_rnn_zero:
-    rates04d = np.reshape(test0_oddball_ctx['rates'], (trial_len, num_trials, dparams['num_batch'], num_cells), order = 'F')
-    rates04d_cut = rates04d[:,num_skip_trials:,:,:]
-    
-    rates0_cut = np.reshape(rates04d_cut, (trial_len*num_trials2, num_run, num_cells), order = 'F')
-    rates02d_cut = np.reshape(rates0_cut, (trial_len*num_trials2*num_run, num_cells), order = 'F')
+trial_len = round((params['stim_duration'] + params['isi_duration']) / params['dt'])
+num_trials = num_trials_ob + num_prepend_zeros
+num_trials_cut = num_trials - num_skip_trials
 
 
-rates_const4d = np.reshape(test_const_ctx['rates'], (trial_len, num_trials, red_stim_const.shape[0], num_cells), order = 'F')
-rates_const4d_cut = rates_const4d[:,num_skip_trials:,:,:]
+# oddball inputs
+rates4d_cut, rates3d_cut, rates2d_cut = f_reshape_rates(test_oddball_ctx['rates'], num_trials, trial_len, num_skip_trials = num_skip_trials)
+ratesf4d_cut, ratesf3d_cut, ratesf2d_cut = f_reshape_rates(testf_oddball_ctx['rates'], num_trials, trial_len, num_skip_trials = num_skip_trials)
+rates04d_cut, rates03d_cut, rates02d_cut = f_reshape_rates(test0_oddball_ctx['rates'], num_trials, trial_len, num_skip_trials = num_skip_trials)
 
-rates_const_cut = np.reshape(rates_const4d_cut, (trial_len*num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
-rates_const2d_cut = np.reshape(rates_const_cut, (trial_len*num_trials2*red_stim_const.shape[0], num_cells), order = 'F')
+# constant inputs
+rates_const4d_cut, rates_const3d_cut, rates_const2d_cut = f_reshape_rates(test_const_ctx['rates'], num_trials, trial_len, num_skip_trials = num_skip_trials)
+ratesf_const4d_cut, ratesf_const3d_cut, ratesf_const2d_cut = f_reshape_rates(testf_const_ctx['rates'], num_trials, trial_len, num_skip_trials = num_skip_trials)
+rates0_const4d_cut, rates0_const3d_cut, rates0_const2d_cut = f_reshape_rates(test0_const_ctx['rates'], num_trials, trial_len, num_skip_trials = num_skip_trials)
 
-if do_rnn_zero:
-    rates0_const4d = np.reshape(test0_const_ctx['rates'], (trial_len, num_trials, red_stim_const.shape[0], num_cells), order = 'F')
-    rates0_const4d_cut = rates0_const4d[:,num_skip_trials:,:,:]
+# control intputs
+rates_cont_freq4d_cut, rates_cont_freq3d_cut, rates_cont_freq2d_cut = f_reshape_rates(test_cont_freq['rates'], num_cont_trials+num_prepend_zeros, trial_len, num_skip_trials = num_skip_trials)
+ratesf_cont_freq4d_cut, ratesf_cont_freq3d_cut, ratesf_cont_freq2d_cut = f_reshape_rates(testf_cont_freq['rates'], num_cont_trials+num_prepend_zeros, trial_len, num_skip_trials = num_skip_trials)
+rates0_cont_freq4d_cut, rates0_cont_freq3d_cut, rates0_cont_freq2d_cut = f_reshape_rates(test0_cont_freq['rates'], num_cont_trials+num_prepend_zeros, trial_len, num_skip_trials = num_skip_trials)
 
-    rates0_const_cut = np.reshape(rates0_const4d_cut, (trial_len*num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
-    rates0_const2d_cut = np.reshape(rates0_const_cut, (trial_len*num_trials2*red_stim_const.shape[0], num_cells), order = 'F')
+trials_oddball_ctx_cut = ob_data1['trials_oddball_ctx'][num_skip_trials:,:]
+trials_oddball_freq_cut = ob_data1['trials_oddball_freq'][num_skip_trials:,:]
 
+trials_const_ctx_cut = ob_data_const['trials_oddball_ctx3'][num_skip_trials:,:]
+trials_const_freq_cut = ob_data_const['trials_oddball_freq'][num_skip_trials:,:]
 
-# cont
-rates_cont_freq4d = np.reshape(test_cont_freq['rates'], (trial_len, dparams['num_trials'], num_cont_batch, num_cells), order = 'F')
-rates_cont_freq4d_cut = rates_cont_freq4d[:,num_skip_trials:,:,:]
+trials_cont_cut = cont_data['trials_control_freq'][num_skip_trials:,:]
 
-rates_cont_freq_cut = np.reshape(rates_cont_freq4d_cut, (trial_len*(dparams['num_trials']-num_skip_trials), num_cont_batch, num_cells), order = 'F')
-#rates_cont_freq2d_cut = np.reshape(rates_cont_freq_cut, (trial_len*(dparams['num_trials']-num_skip_trials)*dparams['num_batch'], num_cells), order = 'F')
-
-if do_rnn_zero:
-    rates_cont_freq4d0 = np.reshape(test_cont_freq0['rates'], (trial_len, dparams['num_trials'], num_cont_batch, num_cells), order = 'F')
-    rates_cont_freq4d0_cut = rates_cont_freq4d0[:,num_skip_trials:,:,:]
-    
-    rates_cont_freq0_cut = np.reshape(rates_cont_freq4d0_cut, (trial_len*(dparams['num_trials']-num_skip_trials), num_cont_batch, num_cells), order = 'F')
-    #rates_cont_freq2d0_cut = np.reshape(rates_cont_freq0_cut, (trial_len*(dparams['num_trials']-num_skip_trials)*dparams['num_batch'], num_cells), order = 'F')
-    
-    
-# plt.figure()
-# plt.plot(rates4d[:, 0, 0,:])
-
-# plt.figure()
-# plt.plot(rates04d[:, 0, 0,:])
-
-# plt.figure()
-# plt.plot(rates[:,0,:])
+red_dd_seq = ob_data1['red_dd_seq']
+red_stim_const = ob_data_const['red_dd_seq'][0,:]
+test_cont_stim = cont_data['control_stim']
 
 #%% PCA stuff full data
 
 proj_data, exp_var, dred_comp, dred_mean = f_run_dred(rates2d_cut, subtr_mean=dred_subtr_mean, method=dred_met)
 
-comp_out3d = np.reshape(proj_data, (trial_len*num_trials2, num_run, num_cells), order = 'F')
-comp_out4d = np.reshape(proj_data, (trial_len, num_trials2, num_run, num_cells), order = 'F')
-
-proj_data_const = np.dot(rates_const2d_cut, dred_comp)
-
-comp_out_const3d = np.reshape(proj_data_const, (trial_len*num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
-comp_out_const4d = np.reshape(proj_data_const, (trial_len, num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
-
-if do_rnn_zero:
-    proj_data0, exp_var0, dred_comp0, _ = f_run_dred(rates02d_cut, subtr_mean=dred_subtr_mean, method=dred_met)
-    
-    # dred_comp0 = dred_comp
-    # proj_data0 = np.dot(rates02d_cut, dred_comp0)
-
-    comp_out03d = np.reshape(proj_data0, (trial_len*num_trials2, num_run, num_cells), order = 'F')
-    comp_out04d = np.reshape(proj_data0, (trial_len, num_trials2, num_run, num_cells), order = 'F')
+comp_out3d = np.reshape(proj_data, (trial_len*num_trials_cut, num_runs, num_cells), order = 'F')
+comp_out4d = np.reshape(proj_data, (trial_len, num_trials_cut, num_runs, num_cells), order = 'F')
 
 
-    proj_data0_const = np.dot(rates0_const2d_cut, dred_comp0)
 
-    comp_out0_const3d = np.reshape(proj_data0_const, (trial_len*num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
-    comp_out0_const4d = np.reshape(proj_data0_const, (trial_len, num_trials2, red_stim_const.shape[0], num_cells), order = 'F')
+proj_dataf, exp_varf, dred_compf, _ = f_run_dred(ratesf2d_cut, subtr_mean=dred_subtr_mean, method=dred_met)
+comp_outf3d = np.reshape(proj_dataf, (trial_len*num_trials_cut, num_runs, num_cells), order = 'F')
+comp_outf4d = np.reshape(proj_dataf, (trial_len, num_trials_cut, num_runs, num_cells), order = 'F')
 
-plt.figure()
-#plt.subplot(1,2,1);
-plt.plot(exp_var, 'o-')
-if do_rnn_zero:
-    plt.plot(exp_var0, 'o-')
-plt.ylabel('fraction')
-plt.title('Explained Variance'); plt.xlabel('component')
-if do_rnn_zero:
-    plt.legend(['trained', 'untrained'])
 
-#%%  decoding bin-wise, with cv, finalized ver, single trial data
+proj_data0, exp_var0, dred_comp0, _ = f_run_dred(rates02d_cut, subtr_mean=dred_subtr_mean, method=dred_met)
+# dred_comp0 = dred_comp
+# proj_data0 = np.dot(rates02d_cut, dred_comp0)
+
+comp_out03d = np.reshape(proj_data0, (trial_len*num_trials_cut, num_runs, num_cells), order = 'F')
+comp_out04d = np.reshape(proj_data0, (trial_len, num_trials_cut, num_runs, num_cells), order = 'F')
+
+
+_, exp_var_cont, _, _ = f_run_dred(rates_cont_freq2d_cut, subtr_mean=dred_subtr_mean, method=dred_met)
+_, exp_varf_cont, _, _ = f_run_dred(ratesf_cont_freq2d_cut, subtr_mean=dred_subtr_mean, method=dred_met)
+_, exp_var0_cont, _, _ = f_run_dred(rates0_cont_freq2d_cut, subtr_mean=dred_subtr_mean, method=dred_met)
+
+
+proj_data_const, exp_var_const, dred_comp_const, _ = f_run_dred(rates_const2d_cut, subtr_mean=dred_subtr_mean, method=dred_met)
+#proj_data_const = np.dot(rates_const2d_cut, dred_comp)
+comp_out_const3d = np.reshape(proj_data_const, (trial_len*num_trials_cut, red_stim_const.shape[0], num_cells), order = 'F')
+comp_out_const4d = np.reshape(proj_data_const, (trial_len, num_trials_cut, red_stim_const.shape[0], num_cells), order = 'F')
+
+proj_dataf_const = np.dot(ratesf_const2d_cut, dred_comp_const)
+comp_outf_const3d = np.reshape(proj_dataf_const, (trial_len*num_trials_cut, red_stim_const.shape[0], num_cells), order = 'F')
+comp_outf_const4d = np.reshape(proj_dataf_const, (trial_len, num_trials_cut, red_stim_const.shape[0], num_cells), order = 'F')
+
+proj_data0_const = np.dot(rates0_const2d_cut, dred_comp0)
+comp_out0_const3d = np.reshape(proj_data0_const, (trial_len*num_trials_cut, red_stim_const.shape[0], num_cells), order = 'F')
+comp_out0_const4d = np.reshape(proj_data0_const, (trial_len, num_trials_cut, red_stim_const.shape[0], num_cells), order = 'F')
+
+
+proj_data_cont1 = np.dot(rates_cont_freq2d_cut, dred_comp_const)
+comp_out_cont13d = np.reshape(proj_data_cont1, (trial_len*(num_cont_trials+num_prepend_zeros-num_skip_trials), num_cont_runs, num_cells), order = 'F')
+comp_out_cont14d = np.reshape(proj_data_cont1, (trial_len, num_cont_trials+num_prepend_zeros-num_skip_trials, num_cont_runs, num_cells), order = 'F')
+
+
+proj_data2 = np.dot(rates2d_cut, dred_comp_const)
+comp_out3d2 = np.reshape(proj_data2, (trial_len*num_trials_cut, num_runs, num_cells), order = 'F')
+comp_out4d2 = np.reshape(proj_data2, (trial_len, num_trials_cut, num_runs, num_cells), order = 'F')
+
+
+#f_plot_exp_var([exp_var, exp_varf, exp_var0], ['oddball trained', 'freq trained', 'untrained'], 'oddball inputs')
+        
+#f_plot_exp_var([exp_var_cont, exp_varf_cont, exp_var0_cont], ['oddball trained', 'freq trained', 'untrained'], 'control inputs')
+
+f_plot_exp_var([exp_var, exp_var_cont, exp_varf, exp_varf_cont, exp_var0, exp_var0_cont], ['ob trained ob in', 'ob trained freq in', 'freq trained ob in', 'freq trained freq in', 'untrained ob in', 'untrained freq in'], max_comps_plot=6)
+
+#%% analyze rates during oddball  
 # plt.close('all')
 
-do_pca = 0
-comp_thresh = .99
+pl_params = {}
 
-num_cv = 5
+pl_params['num_runs_plot'] = 5
+pl_params['plot_trials'] = 200
+pl_params['color_ctx'] = 1             # 0 = red; 1 = dd
+pl_params['mark_red'] = 0
+pl_params['mark_dd'] = 0
+pl_params['plot_pc'] = [[1, 2], [3, 4], [5, 6]] # , [5, 6], [7, 8]
 
-pre_dd1 = 2
-post_dd1 = 50
-num_tr_ave = pre_dd1 + post_dd1 + 1
+f_plot_dred_rates(trials_oddball_ctx_cut, comp_out4d, red_dd_seq, pl_params, params, title_tag='ob trained RNN')
 
-plot_t1 = (np.arange(num_tr_ave*trial_len)-pre_dd1*trial_len-trial_len/4)*params['dt']
+f_plot_dred_rates(trials_oddball_ctx_cut, comp_outf4d, red_dd_seq, pl_params, params, title_tag='freq trained RNN')
 
-cond_time = 0.25
-cond_bin = np.argmin(np.abs(cond_time - plot_t1))
+f_plot_dred_rates(trials_oddball_ctx_cut, comp_out04d, red_dd_seq, pl_params, params, title_tag='untrained RNN')
+
+
+
+f_plot_dred_rates(trials_const_ctx_cut, comp_out_const4d, red_dd_seq, pl_params, params, title_tag='ob trained RNN')
+
+f_plot_dred_rates(trials_const_ctx_cut, comp_outf_const4d, red_dd_seq, pl_params, params, title_tag='ob trained RNN')
+
+
+f_plot_dred_rates2(trials_oddball_ctx_cut, comp_out4d, plot_pcs=[[1, 2], [3, 4], [5, 6], [7, 8]], num_runs_plot=10, num_trials_plot=200, run_labels=red_dd_seq[1,:], mark_red=False, mark_dev=True, title_tag='ob trained RNN') # 
+
+
+# run_labels = red_stim_const
+f_plot_dred_rates2(trials_const_ctx_cut, comp_out_const4d, plot_pcs=[[3, 4]], num_runs_plot=20, num_trials_plot=200, run_labels=[], mark_red=False, mark_dev=False, title_tag='ob trained RNN') # 
+
+f_plot_dred_rates3d(trials_const_ctx_cut, comp_out_const4d, plot_pcs=[[1, 2, 3]], num_runs_plot=20, num_trials_plot=200, el_az_ro=[20, -60, 0], run_labels=[], mark_red=False, mark_dev=False, title_tag='ob trained RNN') # 
+
+
+
+
+f_plot_dred_rates3(trials_const_freq_cut, comp_out_const4d, plot_pcs=[[3, 4]], num_runs_plot=50, num_trials_plot=100, rescale_colors=False, title_tag='ob trained RNN')
+
+
+f_plot_dred_rates3(trials_cont_cut, comp_out_cont14d, plot_pcs=[[3, 4]], num_runs_plot=2, num_trials_plot=100, rescale_colors=True, title_tag='ob trained RNN') # 
+
+
+f_plot_dred_rates3(trials_oddball_freq_cut, comp_out4d2, plot_pcs=[[3, 4]], num_runs_plot=50, num_trials_plot=100, rescale_colors=False, title_tag='ob trained RNN') # 
+
+
+#%%
+# plt.close('all')
+
+plot_t1 = (np.arange(trial_len)-trial_len/4)*params['dt']
+
+f_plot_mmn(rates4d_cut, trials_oddball_ctx_cut, plot_t1, params, title_tag='ob trained RNN')
+
+f_plot_mmn(ratesf4d_cut, trials_oddball_ctx_cut, plot_t1, params, title_tag='freq trained RNN')
+
+f_plot_mmn(rates04d_cut, trials_oddball_ctx_cut, plot_t1, params, title_tag='untrained RNN')
+
+
+#%%
+
+base_sub = True
+split_pos_neg = True
+
+f_plot_mmn2(trials_oddball_ctx_cut, rates4d_cut, trials_cont_cut, rates_cont_freq4d_cut, plot_t1, red_dd_seq, title_tag='ob trained RNN', baseline_subtract=base_sub, split_pos_cells=split_pos_neg)
+
+f_plot_mmn2(trials_oddball_ctx_cut, ratesf4d_cut, trials_cont_cut, ratesf_cont_freq4d_cut, plot_t1, red_dd_seq, title_tag='freq trained RNN', baseline_subtract=base_sub, split_pos_cells=split_pos_neg)
+
+f_plot_mmn2(trials_oddball_ctx_cut, rates04d_cut, trials_cont_cut, rates0_cont_freq4d_cut, plot_t1, red_dd_seq, title_tag='untrained RNN', baseline_subtract=base_sub, split_pos_cells=split_pos_neg)
+
+
+#%%
+
+base_sub = True
+
+f_plot_mmn_dist(trials_oddball_ctx_cut, rates4d_cut, trials_cont_cut, rates_cont_freq4d_cut, plot_t1, red_dd_seq, title_tag='ob trained RNN', baseline_subtract=base_sub)
+
+f_plot_mmn_dist(trials_oddball_ctx_cut, ratesf4d_cut, trials_cont_cut, ratesf_cont_freq4d_cut, plot_t1, red_dd_seq, title_tag='freq trained RNN', baseline_subtract=base_sub)
+
+f_plot_mmn_dist(trials_oddball_ctx_cut, rates04d_cut, trials_cont_cut, rates0_cont_freq4d_cut, plot_t1, red_dd_seq, title_tag='untrained RNN', baseline_subtract=base_sub)
+
+#%%
+
+base_sub = True
+
+f_plot_mmn_freq(trials_oddball_ctx_cut, rates4d_cut, trials_cont_cut, rates_cont_freq4d_cut, plot_t1, red_dd_seq, title_tag='ob trained RNN', baseline_subtract=base_sub)
+
+f_plot_mmn_freq(trials_oddball_ctx_cut, ratesf4d_cut, trials_cont_cut, ratesf_cont_freq4d_cut, plot_t1, red_dd_seq, title_tag='freq trained RNN', baseline_subtract=base_sub)
+
+f_plot_mmn_freq(trials_oddball_ctx_cut, rates04d_cut, trials_cont_cut, rates0_cont_freq4d_cut, plot_t1, red_dd_seq, title_tag='untrained RNN', baseline_subtract=base_sub)
+
+#%%
+
+zero_trials = 10
+ymax = 100
+
+f_plot_run_dist(rates4d_cut, plot_runs=50, plot_trials=100, zero_trials=zero_trials, stim_ave_win=[], run_labels = red_dd_seq[0,:], ymax = ymax, title_tag='ob inputs')
+
+f_plot_run_dist(rates_const4d_cut, plot_runs=50, plot_trials=100, zero_trials=zero_trials, stim_ave_win=[], run_labels = red_stim_const, ymax = ymax, title_tag='const inputs')
+
+f_plot_run_dist(rates_cont_freq4d_cut, plot_runs=20, plot_trials=100, zero_trials=zero_trials, stim_ave_win=[], run_labels = np.zeros((100)), ymax = ymax, title_tag='control inputs')
+
+#%%
+
+
+trial_len, num_trials, num_runs, num_cells = rates4d_cut.shape
+freqs_all = np.unique(red_dd_seq)
+num_freqs = freqs_all.shape[0]
+colors_freq = cm.jet(np.linspace(0,1,num_freqs))
+
+trial_ave_rdc = f_get_rdc_trav(trials_oddball_ctx_cut, rates4d_cut, trials_cont_cut, rates_cont_freq4d_cut, plot_t1, red_dd_seq, baseline_subtract=False)
+
+base_time = plot_t1<0
+on_time = np.logical_and(plot_t1>.200, plot_t1<.5)
+
+trial_ave_c = trial_ave_rdc[:,2,:,:]
+
+base_act = np.mean(trial_ave_c[base_time,:,:], axis=0)
+on_act = np.mean(trial_ave_c[on_time,:,:], axis=0)
+
+freq_dist = np.zeros((num_freqs))
+freq_dir = np.zeros((num_freqs, num_cells))
+for n_freq in range(num_freqs):
+    vec1 = on_act[n_freq,:] - base_act[n_freq,:]
+    norm1 = pdist((base_act[n_freq,:], on_act[n_freq,:]))[0]
+    #norm1 = np.sqrt(np.sum(vec1**2))
+    freq_dist[n_freq] = norm1
+
+    freq_dir[n_freq,:] = vec1/norm1
+
+
+plt.figure()
+plt.plot(freq_dist)
+plt.xlabel('freqs')
+plt.ylabel('magnitudes')
+
+
+plt.figure()
+plt.imshow(freq_dir)
+plt.xlabel('cells')
+plt.ylabel('freqs')
+
+dist_cos = squareform(pdist(freq_dir, 'cosine'))
+plt.figure()
+plt.imshow(1 - dist_cos)
+plt.xlabel('freq')
+plt.ylabel('freq')
+plt.colorbar()
+plt.title('cosine similarity between freq directions')
+
+# projected directions of control activity
+proj_freq_dir = np.dot(freq_dir, dred_comp)
+
+plt.figure()
+plt.imshow(proj_freq_dir)
+plt.xlabel('pcs')
+plt.ylabel('freqs')
+
+
+plt.figure()
+plt.plot(freq_dir)
+
+plt.figure()
+plt.plot(proj_freq_dir)
+
+# pcs
+pc_plot = [[0, 1], [2, 3], [4, 5], [6, 7]]
+for n_pc in range(len(pc_plot)):
+    plt.figure()
+    pc1 = pc_plot[n_pc]
+    for n_freq in range(num_freqs):
+        plt.plot([0, proj_freq_dir[n_freq,pc1[0]]], [0, proj_freq_dir[n_freq,pc1[1]]], color=colors_freq[n_freq,:])
+    plt.xlabel(pc1[0])
+    plt.ylabel(pc1[1])
+    
+# cells
+pc_plot = [[0, 1], [2, 3], [4, 5], [6, 7]]
+for n_pc in range(len(pc_plot)):
+    plt.figure()
+    pc1 = pc_plot[n_pc]
+    for n_freq in range(num_freqs):
+        plt.plot([0, freq_dir[n_freq,pc1[0]]], [0, freq_dir[n_freq,pc1[1]]], color=colors_freq[n_freq,:])
+    plt.xlabel(pc1[0])
+    plt.ylabel(pc1[1])
+
+
+#%%
+
+trial_ave_rdc = f_get_rdc_trav(trials_oddball_ctx_cut, rates4d_cut, trials_cont_cut, rates_cont_freq4d_cut, plot_t1, ob_data1['red_dd_seq'])
+
+trial_ave4d2, trial_data_sort, num_dd_trials = f_trial_ave_ctx_pad2(rates4d_cut, trials_oddball_ctx_cut, pre_dd = 0, post_dd = 3, max_trials=5, shuffle_trials=True)
+
+
+trial_ave4d2.shape
+
+trials_oddball_red_fwr, trials_oddball_red_rev = f_label_redundants(trials_oddball_ctx_cut)
+
+freqs_all = np.unique(ob_data1['red_dd_seq'])
+num_freqs = freqs_all.shape[0]
+
+ctx_rdc_std_all = np.zeros((trial_len, 3, num_cells, num_freqs))
+
+for n_freq in range(num_freqs):
+    freq1 = freqs_all[n_freq]
+
+    freq_idx = ob_data1['red_dd_seq'][1,:]  == freq1
+    n_run = np.where(freq_idx)[0][0]
+    
+
+    dev_tr_idx = trials_oddball_ctx_cut[:,n_run] == 1
+    
+    num_tr1 = np.sum(dev_tr_idx)   
+    
+    rates4d_cut[:,dev_tr_idx, n_run,:]
+    
+    ctx_rdc_std_all[:,1,:,n_freq] = np.std(rates4d_cut[:,dev_tr_idx, n_run,:], axis=1)
+    
+    cont_run = 0
+    cont_tr_idx = trials_cont_cut[:,cont_run] == freq1
+    cont_resp_all = rates_cont_freq4d_cut[:,cont_tr_idx,cont_run,:]
+    
+    ctx_rdc_std_all[:,2,:,n_freq] = np.mean(cont_resp_all[:,:num_tr1,:], axis=1)
+    
+    freq_idx = ob_data1['red_dd_seq'][0,:]  == freq1
+    n_run = np.where(freq_idx)[0][0]
+
+   
+    
+    red_tr_idx = trials_oddball_red_rev[:,n_run] == -3
+    
+    ctx_rdc_std_all[:,0,:,n_freq] = np.mean(rates4d_cut[:,red_tr_idx, n_run,:], axis=1)
+
+if 1:
+    ctx_rdc_std_all2= ctx_rdc_std_all - np.mean(ctx_rdc_std_all[:5,:,:,:], axis=0)
+else:
+    ctx_rdc_std_all2= ctx_rdc_std_all
+    
+ctx_rdc_std_all3 = np.mean(np.mean(ctx_rdc_std_all2, axis=3), axis=2)
+
+col_ctx = ['blue', 'red', 'black']
+plt.figure()
+for n_ctx in range(3):
+    plt.plot(plot_t1, ctx_rdc_std_all3[:,n_ctx], color=col_ctx[n_ctx])
+
+
+#%% generate mmn pca plot
+
+plt.close('all')
+plot_t1 = (np.arange(trial_len)-trial_len/4)*params['dt']
+
+red_dd_seq = ob_data1['red_dd_seq']
+
+num_trials5, num_runs5 = trials_oddball_ctx_cut.shape
+
+num_cont_trials, num_cont_runs = trials_cont_cut.shape
+
+trials_oddball_red_fwr, trials_oddball_red_rev = f_label_redundants(trials_oddball_ctx_cut)
+
+
+freqs_all = np.unique(red_dd_seq)
+num_freqs = freqs_all.shape[0]
+
+trial_ave_rdc = np.zeros((trial_len, 3, num_freqs, num_cells))
+
+for n_freq in range(num_freqs):
+    freq1 = freqs_all[n_freq]
+    
+    red_run_idx = red_dd_seq[0,:] == freq1
+    dev_run_idx = ob_data1['red_dd_seq'][1,:] == freq1
+    
+    
+    red_resp_all = []
+    dev_resp_all = []
+    for n_run in range(num_runs5):
+        if red_run_idx[n_run]:
+            #red_tr_idx = trials_oddball_red_fwr[:,n_run] == 3
+            red_tr_idx = trials_oddball_red_rev[:,n_run] == -3
+            
+            red_resp_all.append(rates4d_cut[:,red_tr_idx, n_run,:])
+        
+        if dev_run_idx[n_run]:
+            dev_tr_idx = trials_oddball_ctx_cut[:,n_run] == 1
+            
+            dev_resp_all.append(rates4d_cut[:,dev_tr_idx, n_run,:])
+    
+    red_resp_all2 = np.concatenate(red_resp_all, axis=1)
+    dev_resp_all2 = np.concatenate(dev_resp_all, axis=1)
+    
+    cont_run = 0
+    cont_tr_idx = trials_cont_cut[:,cont_run] == freq1
+    cont_resp_all = rates_cont_freq4d_cut[:,cont_tr_idx,cont_run,:]
+    
+    red_tr_ave = np.mean(red_resp_all2, axis=1)
+    
+    dev_tr_ave = np.mean(dev_resp_all2, axis=1)
+    
+    cont_tr_ave = np.mean(cont_resp_all, axis=1)
+  
+    if 1:
+        red_tr_ave3 = red_tr_ave - np.mean(red_tr_ave[:5,:], axis=0)
+        dev_tr_ave3 = dev_tr_ave - np.mean(dev_tr_ave[:5,:], axis=0)
+        cont_tr_ave3 = cont_tr_ave - np.mean(cont_tr_ave[:5,:], axis=0)
+    else:
+        red_tr_ave3 = red_tr_ave
+        dev_tr_ave3 = dev_tr_ave
+        cont_tr_ave3 = cont_tr_ave
+    
+    trial_ave_rdc[:,0,n_freq,:] = red_tr_ave3
+    trial_ave_rdc[:,1,n_freq,:] = dev_tr_ave3
+    trial_ave_rdc[:,2,n_freq,:] = cont_tr_ave3
+
+
+trial_ave_rdc2 = np.reshape(trial_ave_rdc, (trial_len, 3, num_freqs*num_cells), order='F')
+
+colors_ctx = ['blue', 'red', 'black']
+plt.figure()
+for n_ctx in range(1):
+    plt.plot(trial_ave_rdc2[:,n_ctx,:], color=colors_ctx[n_ctx])
+    
+
+mmn_mean = np.mean(trial_ave_rdc2[:,:,:],axis=2)
+mmn_sem = np.std(trial_ave_rdc2[:,:,:],axis=2)/np.sqrt(num_freqs*num_cells-1)
+
+colors_ctx = ['blue', 'red', 'black']
+plt.figure()
+for n_ctx in range(3):
+    plt.plot(plot_t1, mmn_mean[:,n_ctx], color=colors_ctx[n_ctx])
+    plt.fill_between(plot_t1, mmn_mean[:,n_ctx]-mmn_sem[:,n_ctx], mmn_mean[:,n_ctx]+mmn_sem[:,n_ctx], color=colors_ctx[n_ctx], alpha=0.2)
+
+
+#%%
+
+colors_cells = cm.jet(np.linspace(0,1,num_cells))
+
+trials_oddball_red_fwr, trials_oddball_red_rev = f_label_redundants(trials_oddball_ctx_cut)
+
+
+for n_freq in range(5):
+    freq1 = test_cont_stim[n_freq]
+    
+    red_run_idx = ob_data1['red_dd_seq'][0,:] == freq1
+    red_run = np.where(red_run_idx)[0][0]
+    
+    #red_tr_idx = trials_oddball_red_fwr[:,red_run] == 3
+    red_tr_idx = trials_oddball_red_rev[:,red_run] == -3
+    
+    dev_run_idx = ob_data1['red_dd_seq'][1,:] == freq1
+    dev_run = np.where(dev_run_idx)[0][0]
+    
+    dev_tr_idx = trials_oddball_ctx_cut[:,dev_run] == 1
+    
+    cont_run = 0
+    cont_tr_idx = trials_cont_cut[:,cont_run] == freq1
+    
+    
+    
+    rates_red = rates4d_cut[:,red_tr_idx, red_run,:]
+    rates_dev = rates4d_cut[:,dev_tr_idx, dev_run,:]
+    rates_cont = rates_cont_freq4d_cut[:,cont_tr_idx,cont_run,:]
+    
+    
+    base_red = np.mean(rates_red[:5,:,:], axis=0)[None,:,:]
+    base_dev = np.mean(rates_dev[:5,:,:], axis=0)[None,:,:]
+    base_cont = np.mean(rates_cont[:5,:,:], axis=0)[None,:,:]
+    
+    rates_redn = rates_red - base_red
+    rates_devn = rates_dev - base_dev
+    rates_contn = rates_cont - base_cont
+    
+    
+    rates_redn_trav = np.mean(rates_redn, axis=1)
+    rates_devn_trav = np.mean(rates_devn, axis=1)
+    rates_contn_trav = np.mean(rates_contn, axis=1)
+    
+    
+    range_pl = range(25)
+    
+    plt.figure()
+    plt.subplot(1,3,1)
+    for n_cell in range_pl:
+        plt.plot(rates_redn[:,:,n_cell], color=colors_cells[n_cell,:])
+    plt.title('redundant')
+    plt.subplot(1,3,2)
+    for n_cell in range_pl:
+        plt.plot(rates_devn[:,:,n_cell], color=colors_cells[n_cell,:])
+    plt.title('deviant')
+    plt.subplot(1,3,3)
+    for n_cell in range_pl:
+        plt.plot(rates_contn[:,:,n_cell], color=colors_cells[n_cell,:])
+    plt.title('control')
+    plt.suptitle('freq %d' % freq1)
+    
+    plt.figure()
+    plt.subplot(1,3,1)
+    for n_cell in range_pl:
+        plt.plot(rates_redn_trav[:,n_cell], color=colors_cells[n_cell,:])
+    plt.title('redundant')
+    plt.subplot(1,3,2)
+    for n_cell in range_pl:
+        plt.plot(rates_devn_trav[:,n_cell], color=colors_cells[n_cell,:])
+    plt.title('deviant')
+    plt.subplot(1,3,3)
+    for n_cell in range_pl:
+        plt.plot(rates_contn_trav[:,n_cell], color=colors_cells[n_cell,:])
+    plt.title('control')
+    plt.suptitle('freq %d' % freq1)
+    
+    
+    plt.figure()
+    plt.plot(np.mean(rates_redn_trav, axis=1), color='blue')
+    plt.plot(np.mean(rates_devn_trav, axis=1), color='red')
+    plt.plot(np.mean(rates_contn_trav, axis=1), color='black')
+    plt.title('freq %d' % freq1)
+    
+    
+    mmn_data = np.concatenate((rates_redn_trav, rates_devn_trav, rates_contn_trav), axis=0)
+    
+    proj_data_mmn, exp_var_mmn, dred_comp_mmn, dred_mean_mmn = f_run_dred(mmn_data, subtr_mean=dred_subtr_mean, method=dred_met)
+    
+    proj_data_mmn3d = np.reshape(proj_data_mmn, [20, 3, num_cells], order='F')
+    
+    
+    plt.figure()
+    plt.plot(proj_data_mmn3d[:,0,0], proj_data_mmn3d[:,0,1], color='blue')
+    plt.plot(proj_data_mmn3d[:,1,0], proj_data_mmn3d[:,1,1], color='red')
+    plt.plot(proj_data_mmn3d[:,2,0], proj_data_mmn3d[:,2,1], color='black')
+    plt.title('freq %d' % freq1)
+    
+    
+    ax = plt.figure().add_subplot(projection='3d')
+    ax.plot(proj_data_mmn3d[:,0,0], proj_data_mmn3d[:,0,1], proj_data_mmn3d[:,0,2], color='blue')
+    ax.plot(proj_data_mmn3d[:,1,0], proj_data_mmn3d[:,1,1], proj_data_mmn3d[:,1,2], color='red')
+    ax.plot(proj_data_mmn3d[:,2,0], proj_data_mmn3d[:,2,1], proj_data_mmn3d[:,2,2], color='black')
+    ax.view_init(elev=30., azim=-60, roll=0)  # 30, -60, 0
+    plt.title('freq %d' % freq1)
+
+
+#%%
+
+plot_t1 = (np.arange(trial_len)-trial_len/4)*params['dt']
+
+rates_in = [rates_cont_freq4d_cut, ratesf_cont_freq4d_cut, rates0_cont_freq4d_cut]
+legend_in = ['ob trained', 'freq trained', 'untrained']
+
+dist_cont = f_plot_freq_space_distances_control(rates_in, trials_cont_cut, plot_t1, legend_in, base_correct = False, metric = 'euclidean')
+
+#%%
+
+plot_t1 = (np.arange(trial_len)-trial_len/4)*params['dt']
+
+rates_in = [rates4d_cut, ratesf4d_cut, rates04d_cut]
+legend_in = ['ob trained', 'freq trained', 'untrained']
+
+dist_ctx = f_plot_freq_space_distances_oddball(rates_in, trials_oddball_ctx_cut, ob_data1['red_dd_seq'], plot_t1, legend_in, base_correct = False, metric = 'euclidean')
+
+
+#%%
+freq1 = np.sort(np.unique(ob_data1['red_dd_seq']))
+num_net = len(dist_cont)
+num_freq = freq1.shape[0]
+
+dist_in = [dist_ctx[0], dist_ctx[1], dist_cont]
+ctx_labels_in = ['Redundant', 'Deviant', 'Control'] 
+net_labels_in = ['ob trained', 'freq trained', 'untrained']
+
+num_ctx = len(dist_in)
+num_net = len(dist_in[0])
+
+for n_ctx in range(num_ctx):
+    dist_mean = np.zeros((num_net, num_freq))
+    dist_std = np.zeros((num_net, num_freq))
+    for n_net in range(num_net):
+        for n_freq in range(num_freq):
+            dist_vals = np.diagonal(dist_in[n_ctx][n_net], offset=n_freq)
+            dist_mean[n_net, n_freq] = np.mean(dist_vals)
+            dist_std[n_net, n_freq] = np.std(dist_vals)
+            
+    plt.figure()
+    for n_net in range(num_net):
+        plt.plot(np.arange(num_freq), dist_mean[n_net,:])
+    plt.legend(net_labels_in)
+    for n_net in range(num_net):
+        plt.fill_between(np.arange(num_freq), dist_mean[n_net,:]-dist_std[n_net,:], dist_mean[n_net,:]+dist_std[n_net,:], alpha=0.2)
+    plt.xlabel('Freq difference')
+    plt.ylabel('Euclidean distance')
+    plt.title('%s responses' % ctx_labels_in[n_ctx])
+
+
+#%%
+
+freq1 = np.sort(np.unique(ob_data1['red_dd_seq']))
+num_net = len(dist_cont)
+num_freq = freq1.shape[0]
+
+dist_in = [dist_ctx[0], dist_ctx[1], dist_cont]
+ctx_labels_in = ['Redundant', 'Deviant', 'Control'] 
+net_labels_in = ['ob trained', 'freq trained', 'untrained']
+
+
+colors_ctx = ['blue', 'red', 'black']
+
+num_ctx = len(dist_in)
+num_net = len(dist_in[0])
+
+for n_net in range(num_net):
+
+    dist_mean = np.zeros((num_ctx, num_freq))
+    dist_std = np.zeros((num_ctx, num_freq))
+    for n_ctx in range(num_ctx):
+        for n_freq in range(num_freq):
+            dist_vals = np.diagonal(dist_in[n_ctx][n_net], offset=n_freq)
+            dist_mean[n_ctx, n_freq] = np.mean(dist_vals)
+            dist_std[n_ctx, n_freq] = np.std(dist_vals)
+            
+    plt.figure()
+    for n_ctx in range(num_ctx):
+        plt.plot(np.arange(num_freq), dist_mean[n_ctx,:], color=colors_ctx[n_ctx])
+    plt.legend(ctx_labels_in)
+    for n_ctx in range(num_ctx):
+        plt.fill_between(np.arange(num_freq), dist_mean[n_ctx,:]-dist_std[n_ctx,:], dist_mean[n_ctx,:]+dist_std[n_ctx,:], color=colors_ctx[n_ctx], alpha=0.2)
+    plt.xlabel('Freq difference')
+    plt.ylabel('Euclidean distance')
+    plt.title('%s responses' % net_labels_in[n_net])
+
+ 
+#%% parameter selection for binwise decoders
+# plt.close('all')
+
+pre_tr1 = 1
+post_tr1 = 5
+num_tr_ave = pre_tr1 + post_tr1 + 1
+
+plot_t1 = (np.arange(num_tr_ave*trial_len)-pre_tr1*trial_len-trial_len/4)*params['dt']
+
+cond_bin = np.argmin(np.abs(0.25 - plot_t1))
 
 #type1 = 'dd decoding'
-dec_type1 = 'dd'  # red dd
-
+dec_type1 = 'red'  # red dd
 train_test_method = 'diag'          # full, diag, train_at_stim, test_at_stim
-num_t_bins = num_tr_ave*trial_len
 
-trial_data_sort_dd1, num_dd_trials1 = f_trial_sort_data_ctx_pad(rates4d_cut, trials_test_oddball_ctx_cut, pre_trials = pre_dd1, post_trials = post_dd1)
-trial_data_sort0_dd1, num_dd_trials1 = f_trial_sort_data_ctx_pad(rates04d_cut, trials_test_oddball_ctx_cut, pre_trials = pre_dd1, post_trials = post_dd1)
+#%% oddball freq decoder, binwise single trial decoding of deviance or redundance freq during dd trial of oddball, with cv
 
-red_dd_trial_types_lst = []
+max_trials = 2
+shuffle_trials = False
+
+trial_data_sort_dd1, dd_freqs, num_dd_trials1 = f_trial_sort_data_ctx_pad(rates4d_cut, trials_oddball_ctx_cut, trials_oddball_freq_cut, pre_trials = pre_tr1, post_trials = post_tr1, max_trials=max_trials, shuffle_trials=shuffle_trials)
+trial_data_sortf_dd1, _, _ = f_trial_sort_data_ctx_pad(ratesf4d_cut, trials_oddball_ctx_cut, trials_oddball_freq_cut, pre_trials = pre_tr1, post_trials = post_tr1, max_trials=max_trials, shuffle_trials=shuffle_trials)
+trial_data_sort0_dd1, _, _ = f_trial_sort_data_ctx_pad(rates04d_cut, trials_oddball_ctx_cut, trials_oddball_freq_cut, pre_trials = pre_tr1, post_trials = post_tr1, max_trials=max_trials, shuffle_trials=shuffle_trials)
+
+red_freqs = []
 for n_run in range(dparams['num_batch']):
-    red_dd_trial_types_lst.append(np.ones((2, int(num_dd_trials1[n_run])), dtype=int) * ob_data1['red_dd_seq'][:,n_run][:,None])
+    red_freqs.append(np.ones(num_dd_trials1[n_run], dtype=int) * ob_data1['red_dd_seq'][0,n_run])
 
-red_dd_trial_types2 = np.concatenate(red_dd_trial_types_lst, axis=1)
+dd_freqs2 = np.concatenate(dd_freqs, axis=0)
+red_freqs2 = np.concatenate(red_freqs, axis=0)
+
 trial_data_sort_dd2 = np.concatenate(trial_data_sort_dd1, axis=1)
+trial_data_sortf_dd2 = np.concatenate(trial_data_sortf_dd1, axis=1)
 trial_data_sort0_dd2 = np.concatenate(trial_data_sort0_dd1, axis=1)
-
-num_ctx_tr = int(np.sum(num_dd_trials1))
-    
-shuff_idx = np.arange(num_ctx_tr)
-np.random.shuffle(shuff_idx)
-
-red_dd_trial_types3 = red_dd_trial_types2[:,shuff_idx]
-trial_data_sort_dd3 = trial_data_sort_dd2[:,shuff_idx,:]
-trial_data_sort0_dd3 = trial_data_sort0_dd2[:,shuff_idx,:]
-
-stim_start1 = int(trial_len*pre_dd1+trial_len/4)
-stim_end1 = int(trial_len*pre_dd1+trial_len/4 + params['stim_duration']/params['dt'])
-
-dd1 = red_dd_trial_types3[1,:]
-red1 = red_dd_trial_types3[0,:]
-
-if dec_type1 == 'dd':
-    y = dd1
-    title_tag5 = 'dd decoding'
-elif dec_type1 == 'red':
-    y = red1
-    title_tag5 = 'red decoding'
-    
-y_shuff = y.copy()
-np.random.shuffle(y_shuff)
 
 # SVC does one vs one classif
 # LinearSVC does one vs all
 # SVR is for regression
 
-X_all = [trial_data_sort_dd3, trial_data_sort0_dd3, trial_data_sort_dd3]
-y_all = [y, y, y_shuff]
-leg1 = ('trained RNN', 'untrained RNN', 'trained RNN shuff')
+X_all = [trial_data_sort_dd2, trial_data_sortf_dd2, trial_data_sort0_dd2, trial_data_sort_dd2]
 
-num_dec_run = len(X_all)
+if dec_type1 == 'dd':
+    y_data = dd_freqs2
+elif dec_type1 == 'red':
+    y_data = red_freqs2
 
+leg1 = ('ob trained', 'freq trained', 'untrained', 'ob trained shuff')
+shuff_stim_type = [0, 0, 0, 1]
 
-if train_test_method == 'full':
-    train_t_idx = np.arange(num_t_bins)
-    test_t_idx = np.repeat(np.arange(num_t_bins).reshape((1,num_t_bins)), num_t_bins, axis=0)
-elif train_test_method == 'diag':
-    train_t_idx = np.arange(num_t_bins)
-    test_t_idx = np.arange(num_t_bins).reshape((num_t_bins,1))
-elif train_test_method == 'train_at_stim':
-    train_t_idx = (np.ones(1) * cond_bin).astype(int)
-    test_t_idx = np.arange(num_t_bins)
-elif train_test_method == 'test_at_stim':
-    train_t_idx = np.arange(num_t_bins)
-    test_t_idx = (np.ones(num_t_bins) * cond_bin).astype(int)
-
-preform1_train_test = np.zeros((train_t_idx.shape[0], test_t_idx[0].shape[0], num_cv, num_dec_run))
-
-start_t = time.time()
-
-for n_dec in range(num_dec_run):
-    X_use = X_all[n_dec]
-    
-    if do_pca:
-        
-        X_use2d = np.reshape(X_use, (trial_len*num_tr_ave*num_ctx_tr, num_cells), order = 'F')
-        
-        U, S, Vh = linalg.svd(X_use2d, full_matrices=False)
-        cum_var = np.cumsum(S**2/np.sum(S**2))
-        comp_include_idx = np.where(cum_var > comp_thresh)[0][0]+1
-        X_rec = np.dot(U, Vh*S[:, None])
-        X_LD2d = np.dot(X_use2d, Vh.T)
-        X_use2 = np.reshape(X_LD2d[:,:comp_include_idx], (trial_len*num_tr_ave, num_ctx_tr, comp_include_idx), order = 'F')
-    else:
-        X_use2 = X_use
-    
-    for n_tr in range(train_t_idx.shape[0]): # 
-        print('dec %d of %d; train iter %d/%d' % (n_dec+1, num_dec_run, n_tr, train_t_idx.shape[0]))    
-    
-        n_tr2 = train_t_idx[n_tr]
-        
-        X_train = X_use2[n_tr2,:,:]
-        
-        cv_groups = f_make_cv_groups(num_ctx_tr, num_cv)
-        
-        for n_cv in range(num_cv):
-            test_idx = cv_groups[n_cv]
-            train_idx = ~test_idx
-
-            svc = svm.SVC(kernel='linear', C=1,gamma='auto')
-            svc.fit(X_train[train_idx,:], y_all[n_dec][train_idx])
-            
-            for n_test in range(test_t_idx[n_tr].shape[0]):
-                n_test2 = test_t_idx[n_tr][n_test]
-                X_test = X_use2[n_test2,:,:]
-                
-                test_pred1 = svc.predict(X_test[test_idx])
-                preform1_train_test[n_tr, n_test, n_cv, n_dec] = np.sum(y_all[n_dec][test_idx] == test_pred1)/test_pred1.shape[0]
-   
-run_duration = time.time() - start_t
-print('done; %.2f sec' % run_duration)
+preform2_train_test = f_run_binwise_dec(X_all, y_data, shuff_stim_type, train_test_method=train_test_method, pca_var = 1, cond_bin=cond_bin)
 
 if 0:
-    preform1_train_test = np.load(path1 + '/RNN_data/decoder_data/' + '%s_%s_decoding_%s_postdd%d.npy' % (fname_RNN_save, dec_type1, train_test_method, post_dd1))
+    preform2_train_test = np.load(path1 + '/RNN_data/decoder_data/' + '%s_%s_decoding_%s_%ddec_postdd%d.npy' % (fname_RNN_save, dec_type1, train_test_method, len(X_all), post_tr1))
+    if len(preform2_train_test.shape) >3:
+        preform2_train_test = np.mean(preform2_train_test, axis=2)
 
-preform2_train_test = np.mean(preform1_train_test, axis=2)
-
-plt_start = np.argmin(np.abs(-1 - plot_t1))
-plt_end = np.argmin(np.abs(5 - plot_t1))
-plot_cond = np.argmin(np.abs(.25 - plot_t1))
-
-plot_t2 = plot_t1[plt_start:plt_end]
-
-
-if train_test_method == 'full':
-    
-    for n_dec in range(num_dec_run):
-        plt.figure()
-        plt.imshow(preform2_train_test[plt_start:plt_end,plt_start:plt_end,n_dec], extent=(np.min(plot_t2), np.max(plot_t2), np.max(plot_t2), np.min(plot_t2)))
-        plt.colorbar()
-        plt.clim([0, 1])
-        plt.xlabel('test time')
-        plt.ylabel('train time')
-        plt.title('%s\n%s\n%s' % (name_tag1, name_tag2, leg1[n_dec]))
-
-    plt.figure()
-    for n_dec in range(num_dec_run):
-        plt.plot(plot_t2, np.diag(preform2_train_test[plt_start:plt_end,plt_start:plt_end,n_dec]))
-    plt.legend(leg1)
-    plt.title('%s; bin-wise, crossval' % title_tag5)
-    plt.xlabel('time (sec)')
-    plt.ylabel('performance')
-    
-    plt.figure()
-    for n_dec in range(num_dec_run):
-        plt.plot(plot_t2, preform2_train_test[cond_bin,plt_start:plt_end,n_dec])
-    plt.legend(leg1)
-    plt.title('%s; train at %.2fsec, test variable, crossval' % (title_tag5, plot_t1[cond_bin]))
-    plt.xlabel('time (sec)')
-    plt.ylabel('performance')
-    
-    plt.figure()
-    for n_dec in range(num_dec_run):
-        plt.plot(plot_t2, preform2_train_test[plt_start:plt_end,cond_bin,n_dec])
-    plt.legend(leg1)
-    plt.title('%s; train variable, test at %.2fsec, crossval' % (title_tag5, plot_t1[cond_bin]))
-    plt.xlabel('time (sec)')
-    plt.ylabel('performance')
-    
-elif train_test_method == 'diag':
-    
-    plt.figure()
-    for n_dec in range(num_dec_run):
-        plt.plot(plot_t2, preform2_train_test[plt_start:plt_end,:,n_dec])
-    plt.legend(leg1)
-    plt.title('%s\n%s\n%s; bin-wise, crossval' % (name_tag1, name_tag2, title_tag5))
-    plt.xlabel('time (sec)')
-    plt.ylabel('performance')
-    
-elif train_test_method == 'train_at_stim':
-    1
-elif train_test_method == 'test_at_stim':
-    1
+f_plot_binwise_dec(preform2_train_test, plot_t1, leg1, train_test_method=train_test_method, plt_start=-1, plot_end=5, plot_cont=0.25, title_tag='oddball %s freq single trial decoder' % (dec_type1))
 
 if 0:
+    np.save(path1 + '/RNN_data/decoder_data/' + '%s_%s_decoding_%s_%ddec_postdd%d' % (fname_RNN_save, dec_type1, train_test_method, len(X_all), post_tr1), preform2_train_test)
 
-    np.save(path1 + '/RNN_data/decoder_data/' + '%s_%s_decoding_%s_postdd%d' % (fname_RNN_save, dec_type1, train_test_method, post_dd1), preform1_train_test)
-
-#%% prelim decoder ob trial ave
+#%% oddball freq decoder, binwise trial ave, decoding of deviance or redundance freq during dd trial of oddball, with cv, finalized ver, single trial data, prelim decoder ob 
 # plt.close('all')
-
-pre_dd1 = 4
-post_dd1 = 50
-num_tr_ave = pre_dd1 + post_dd1 + 1
-
-plot_t1 = (np.arange(num_tr_ave*trial_len)-pre_dd1*trial_len-trial_len/4)*params['dt']
-
-#type1 = 'dd decoding'
-dec_type1 = 'dd'  # red dd
-train_method1 = 'bin_wise' # bin_wise, stim_mean
-
 #
-trial_ave4d = f_trial_ave_ctx_pad(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = pre_dd1, post_dd = post_dd1)
-trial_ave3d = np.reshape(trial_ave4d, (trial_len*num_tr_ave, num_batch, num_cells), order = 'F')
-trial_ave2d = np.reshape(trial_ave3d, (trial_len*num_tr_ave*num_batch, num_cells), order = 'F')
-
-trial_ave4d0 = f_trial_ave_ctx_pad(rates04d_cut, trials_test_oddball_ctx_cut, pre_dd = pre_dd1, post_dd = post_dd1)
-trial_ave3d0 = np.reshape(trial_ave4d0, (trial_len*num_tr_ave, num_batch, num_cells), order = 'F')
-trial_ave2d0 = np.reshape(trial_ave3d0, (trial_len*num_tr_ave*num_batch, num_cells), order = 'F')
+trial_ave3d = f_trial_ave_ctx_pad(rates4d_cut, trials_oddball_ctx_cut, pre_dd = pre_tr1, post_dd = post_tr1)
+trial_ave3df= f_trial_ave_ctx_pad(ratesf4d_cut, trials_oddball_ctx_cut, pre_dd = pre_tr1, post_dd = post_tr1)
+trial_ave3d0 = f_trial_ave_ctx_pad(rates04d_cut, trials_oddball_ctx_cut, pre_dd = pre_tr1, post_dd = post_tr1)
 
 use_idx = ~np.isnan(np.mean(np.mean(trial_ave3d,axis=2), axis=0))
 
 trial_ave3d_use = trial_ave3d[:,use_idx,:]
+trial_ave3df_use = trial_ave3df[:,use_idx,:]
 trial_ave3d0_use = trial_ave3d0[:,use_idx,:]
 
-dd1 = ob_data1['red_dd_seq'][1,:]
-red1 = ob_data1['red_dd_seq'][0,:]
+red_dd_trial_types = ob_data1['red_dd_seq'][:,use_idx]
 
 if dec_type1 == 'dd':
-    y = dd1[use_idx]
+    y_data = red_dd_trial_types[1,:]
 elif dec_type1 == 'red':
-    y = red1[use_idx]
-y_shuff = y.copy()
-np.random.shuffle(y_shuff)
-
+    y_data = red_dd_trial_types[0,:]
+    
 # SVC does one vs one classif
 # LinearSVC does one vs all
 # SVR is for regression
 
-stim_start1 = int(trial_len*pre_dd1+trial_len/4)
-stim_end1 = int(trial_len*pre_dd1+trial_len/4 + params['stim_duration']/params['dt'])
+X_all = [trial_ave3d_use, trial_ave3df_use, trial_ave3d0_use, trial_ave3d_use]
+leg1 = ('ob trained', 'freq trained', 'untrained', 'ob shuff')
+shuff_stim_type = [0, 0, 0, 1]
 
-X_all = [trial_ave3d_use, trial_ave3d0_use, trial_ave3d_use]
-y_all = [y, y, y_shuff]
-leg1 = ('trained RNN', 'untrained RNN', 'trained RNN shuff')
+preform2_train_test = f_run_binwise_dec(X_all, y_data, shuff_stim_type, train_test_method=train_test_method, pca_var = 1, cond_bin=cond_bin)
 
-num_dec_run = len(X_all)
-preform1 = np.zeros((trial_len*num_tr_ave, num_dec_run))
+f_plot_binwise_dec(preform2_train_test, plot_t1, leg1, train_test_method='diag', plt_start=-1, plot_end=5, plot_cont=0.25, title_tag='oddball %s freq trial ave decoder' % (dec_type1))
 
-for n_dec in range(num_dec_run):
-    X_use = X_all[n_dec]
-    if train_method1 == 'stim_mean':
-        X = np.mean(X_use[stim_start1:stim_end1,:,:], axis=0)
-        svc = svm.SVC(kernel='linear', C=1,gamma='auto')
-        svc.fit(X, y_all[n_dec])
-    
-    for n_t in range(trial_len*num_tr_ave):
-        X = X_use[n_t,:,:]
-        if train_method1 == 'bin_wise':
-            svc = svm.SVC(kernel='linear', C=1,gamma='auto')
-            #svc.fit(X, y_all[n_dec])
-            scores = cross_val_score(svc, X, y_all[n_dec], cv=5)
-            preform1[n_t, n_dec] = np.mean(scores)
-        else:
-            pred1 = svc.predict(X)
-            pred_prob = np.sum(y_all[n_dec] == pred1)/pred1.shape[0]
-            preform1[n_t, n_dec] = pred_prob
-    
-plt.figure()
-for n_dec in range(num_dec_run):
-    plt.plot(plot_t1, preform1[:,n_dec])
-plt.title('%s, %s decoding' % (dec_type1, train_method1))
-plt.legend(leg1)
-plt.xlabel('time (sec)')
-plt.ylabel('decoding performance')
+#%% control freq decoder, single trial data 
 
-#%% prelim decoder single trial data
-
-pre_dd1 = 4
-post_dd1 = 50
-num_tr_ave = pre_dd1 + post_dd1 + 1
-
-plot_t1 = (np.arange(num_tr_ave*trial_len)-pre_dd1*trial_len-trial_len/4)*params['dt']
-
-#type1 = 'dd decoding'
-dec_type1 = 'dd'  # red dd
-train_method1 = 'bin_wise' # bin_wise, stim_mean
-
-trial_data_sort_dd1, num_dd_trials1 = f_trial_sort_data_ctx_pad(rates4d_cut, trials_test_oddball_ctx_cut, pre_trials = pre_dd1, post_trials = post_dd1)
-
-trial_data_sort0_dd1, num_dd_trials1 = f_trial_sort_data_ctx_pad(rates04d_cut, trials_test_oddball_ctx_cut, pre_trials = pre_dd1, post_trials = post_dd1)
-
-red_dd_trial_types_lst = []
-for n_run in range(dparams['num_batch']):
-    red_dd_trial_types_lst.append(np.ones((2, int(num_dd_trials1[n_run])), dtype=int) * ob_data1['red_dd_seq'][:,n_run][:,None])
-
-red_dd_trial_types2 = np.concatenate(red_dd_trial_types_lst, axis=1)
-trial_data_sort_dd2 = np.concatenate(trial_data_sort_dd1, axis=1)
-trial_data_sort0_dd2 = np.concatenate(trial_data_sort0_dd1, axis=1)
-
-num_ctx_tr = int(np.sum(num_dd_trials1))
-    
-shuff_idx = np.arange(num_ctx_tr)
-np.random.shuffle(shuff_idx)
-
-red_dd_trial_types3 = red_dd_trial_types2[:,shuff_idx]
-trial_data_sort_dd3 = trial_data_sort_dd2[:,shuff_idx,:]
-trial_data_sort0_dd3 = trial_data_sort0_dd2[:,shuff_idx,:]
-
-dd1 = red_dd_trial_types3[1,:]
-red1 = red_dd_trial_types3[0,:]
-
-if dec_type1 == 'dd':
-    y = dd1
-elif dec_type1 == 'red':
-    y = red1
-y_shuff = y.copy()
-np.random.shuffle(y_shuff)
-
-# SVC does one vs one classif
-# LinearSVC does one vs all
-# SVR is for regression
-
-stim_start1 = int(trial_len*pre_dd1+trial_len/4)
-stim_end1 = int(trial_len*pre_dd1+trial_len/4 + params['stim_duration']/params['dt'])
-
-X_all = [trial_data_sort_dd3, trial_data_sort0_dd3, trial_data_sort_dd3]
-y_all = [y, y, y_shuff]
-leg1 = ('trained RNN', 'untrained RNN', 'trained RNN shuff')
-
-num_dec_run = len(X_all)
-preform1 = np.zeros((trial_len*num_tr_ave, num_dec_run))
-
-for n_dec in range(num_dec_run):
-    X_use = X_all[n_dec]
-    if train_method1 == 'stim_mean':
-        X = np.mean(X_use[stim_start1:stim_end1,:,:], axis=0)
-        svc = svm.SVC(kernel='linear', C=1,gamma='auto')
-        svc.fit(X, y_all[n_dec])
-    
-    for n_t in range(trial_len*num_tr_ave):
-        X = X_use[n_t,:,:]
-        if train_method1 == 'bin_wise':
-            svc = svm.SVC(kernel='linear', C=1,gamma='auto')
-            #svc.fit(X, y_all[n_dec])
-            scores = cross_val_score(svc, X, y_all[n_dec], cv=5)
-            preform1[n_t, n_dec] = np.mean(scores)
-        else:
-            pred1 = svc.predict(X)
-            pred_prob = np.sum(y_all[n_dec] == pred1)/pred1.shape[0]
-            preform1[n_t, n_dec] = pred_prob
-    
-plt.figure()
-for n_dec in range(num_dec_run):
-    plt.plot(plot_t1, preform1[:,n_dec])
-plt.title('%s, %s decoding' % (dec_type1, train_method1))
-plt.legend(leg1)
-plt.xlabel('time (sec)')
-plt.ylabel('decoding performance')
-
-
-#%% decoder control, single trial data, to modify 
-
-do_pca = True
-
-pre_tr1 = 4
-post_tr1 = 4
-num_tr_ave = pre_tr1 + post_tr1 + 1
-plot_t1 = (np.arange(num_tr_ave*trial_len)-pre_dd1*trial_len-trial_len/4)*params['dt']
-
-train_method1 = 'bin_wise' # bin_wise, stim_mean
-
-trial_data_sort_cont, trial_types_cont, trial_types_cont_pad = f_trial_sort_data_pad(rates_cont_freq4d_cut, trials_test_cont_cut, pre_trials = pre_tr1, post_trials = post_tr1)
-
-trial_data_sort_cont0, _, _ = f_trial_sort_data_pad(rates_cont_freq4d0_cut, trials_test_cont_cut, pre_trials = pre_tr1, post_trials = post_tr1)
+trial_data_sort_cont, trial_types_cont, trial_types_cont_pad = f_trial_sort_data_pad(rates_cont_freq4d_cut, trials_cont_cut, pre_trials = pre_tr1, post_trials = post_tr1)
+trial_data_sort_contf, _, _ = f_trial_sort_data_pad(ratesf_cont_freq4d_cut, trials_cont_cut, pre_trials = pre_tr1, post_trials = post_tr1)
+trial_data_sort_cont0, _, _ = f_trial_sort_data_pad(rates0_cont_freq4d_cut, trials_cont_cut, pre_trials = pre_tr1, post_trials = post_tr1)
 
 n_run = 0
-y = trial_types_cont[:,n_run]
-y_shuff = y.copy()
-np.random.shuffle(y_shuff)
 
-stim_start1 = int(trial_len*pre_tr1+trial_len/4)
-stim_end1 = int(trial_len*pre_tr1+trial_len/4 + params['stim_duration']/params['dt'])
+trial_data_sort_cont_use = trial_data_sort_cont[:,:,n_run,:]
+trial_data_sort_contf_use = trial_data_sort_contf[:,:,n_run,:]
+trial_data_sort_cont0_use = trial_data_sort_cont0[:,:,n_run,:]
 
+y_data = trial_types_cont[:,n_run]
 
-X_all = [trial_data_sort_cont[:,:,n_run,:], trial_data_sort_cont0[:,:,n_run,:], trial_data_sort_cont[:,:,n_run,:]]
-y_all = [y, y, y_shuff]
-leg1 = ('trained RNN', 'untrained RNN', 'trained RNN shuff')
-
-
-#X_train, X_test, y_train, y_test = train_test_split(X_all[0][0,:,:], y_all[0], test_size=0.4, random_state=0)
-#cv = ShuffleSplit(n_splits=5, test_size=0.3, random_state=0)
-#cross_val_score
-
-num_dec_run = len(X_all)
-preform1 = np.zeros((trial_len*num_tr_ave, num_dec_run))
-
-for n_dec in range(num_dec_run):
-    X_use = X_all[n_dec]
-    if train_method1 == 'stim_mean':
-        X = np.mean(X_use[stim_start1:stim_end1,:,:], axis=0)
-        svc = svm.SVC(kernel='linear', C=1,gamma='auto')
-        svc.fit(X, y_all[n_dec])
-    
-    for n_t in range(trial_len*num_tr_ave):
-        X = X_use[n_t,:,:]
-        
-        if train_method1 == 'bin_wise':
-            svc = svm.SVC(kernel='linear', C=1,gamma='auto')
-            #svc.fit(X, y_all[n_dec])
-            scores = cross_val_score(svc, X, y_all[n_dec], cv=5)
-            preform1[n_t, n_dec] = np.mean(scores)
-        else:
-            pred1 = svc.predict(X)
-            pred_prob = np.sum(y_all[n_dec] == pred1)/pred1.shape[0]
-            preform1[n_t, n_dec] = pred_prob
+X_all = [trial_data_sort_cont_use, trial_data_sort_contf_use, trial_data_sort_cont0_use, trial_data_sort_cont_use]
+leg1 = ('ob trained', 'freq trained', 'untrained', 'ob shuff')
+shuff_stim_type = [0, 0, 0, 1]
 
 
-plt.figure()
-for n_dec in range(num_dec_run):
-    plt.plot(plot_t1, preform1[:,n_dec])
-#plt.plot(plot_t1, preform1_shuff)
-plt.title('control decoding, %s' % train_method1)
-plt.legend(leg1) #, 'trained RNN shuff'
-plt.xlabel('time (sec)')
-plt.ylabel('decoding performance')
+preform2_train_test = f_run_binwise_dec(X_all, y_data, shuff_stim_type, train_test_method=train_test_method, pca_var = 1, cond_bin=cond_bin)
 
-#%% try analyze rnn preformance with decoder
+f_plot_binwise_dec(preform2_train_test, plot_t1, leg1, train_test_method='diag', plt_start=-1, plot_end=5, plot_cont=0.25, title_tag='control freq single trial decoder')
+
+#%% analyze rnn preformance with decoder, specific decoding for dd and red and off
+
+trial_stim_on = np.zeros((trial_len), dtype=bool)
+trial_stim_on[5:15] = 1
+
+#
+plot_t1 = (np.arange(trial_len)-trial_len/4)*params['dt']
+stim_loc = trials_oddball_ctx_cut
+rates_in = [rates4d_cut, ratesf4d_cut, rates04d_cut, rates4d_cut, rates4d_cut]
+
+leg_all = ['ob trained', 'freq trained', 'untrained', 'ob stim shuff', 'ob bin shuff']
+shuff_stim_type = [0, 0, 0, 1, 0]
+shuff_bins = [0, 0, 0, 0, 1]
+
+
+x_data, y_data = f_sample_trial_data_dec(rates_in, stim_loc, [1, 0])
+
+perform1_final, perform1_binwise, perform1_y_is_cat = f_run_one_shot_dec(x_data, y_data, trial_stim_on, shuff_stim_type, shuff_bins, stim_on_train=False, num_cv=5, equalize_y_input=True)
+
+f_plot_one_shot_dec_bycat(perform1_final, perform1_binwise, perform1_y_is_cat, plot_t1, leg_all, ['deviant', 'redundant'], ['pink', 'lightblue'])
+
+#%% analyze rnn preformance with decoder, decoding for deviant vs not deviant
+
+plot_t1 = (np.arange(trial_len)-trial_len/4)*params['dt']
+stim_loc = trials_oddball_ctx_cut
+rates_in = [rates4d_cut, ratesf4d_cut, rates04d_cut, rates4d_cut, rates4d_cut]
+
+leg_all = ['ob trained', 'freq trained', 'untrained', 'ob stim shuff', 'ob bin shuff']
+shuff_stim_type = [0, 0, 0, 1, 0]
+shuff_bins = [0, 0, 0, 0, 1]
+
+
+x_data, y_data = f_sample_trial_data_dec(rates_in, stim_loc, [1, 0])
+y_data1 = (y_data==1).astype(int)
+
+perform1_final, perform1_binwise, perform1_y_is_cat = f_run_one_shot_dec(x_data, y_data1, trial_stim_on, shuff_stim_type, shuff_bins, stim_on_train=True, num_cv=5, equalize_y_input=False)
+
+f_plot_one_shot_dec_iscat(perform1_final, perform1_binwise, perform1_y_is_cat, plot_t1, leg_all, ['deviant', 'not deviant'], ['pink', 'gray'], cat_plot=1)
+
+#%% decoding frequency identity from control inputs
+
+colors10 = cm.jet(np.linspace(0,1,dparams['num_cont_freq_stim']))
+colors10[:,3] = 0.3
+
+n_run = 0
+
+y_data = trials_cont_cut[:,n_run]
+x_data = [rates_cont_freq4d_cut[:,:,n_run,:], ratesf_cont_freq4d_cut[:,:,n_run,:], rates0_cont_freq4d_cut[:,:,n_run,:], rates_cont_freq4d_cut[:,:,n_run,:], rates_cont_freq4d_cut[:,:,n_run,:]]
+leg_all = ['ob trained', 'freq trained', 'untrained', 'ob stim shuff', 'ob bin shuff']
+shuff_stim_type = [0, 0, 0, 1, 0]
+shuff_bins = [0, 0, 0, 0, 1]
+
+
+perform1_final, perform1_binwise, perform1_y_is_cat = f_run_one_shot_dec(x_data, y_data, trial_stim_on, shuff_stim_type, shuff_bins, stim_on_train=False, num_cv=5, equalize_y_input=True)
+
+f_plot_one_shot_dec_bycat(perform1_final, perform1_binwise, perform1_y_is_cat, plot_t1, leg_all, [], colors10)
+
+
+#%% try analyze binwise rnn preformance with decoder  (not sure about this)
 
 num_cv = 5
 
@@ -953,188 +1097,78 @@ num_stim_on = np.sum(trial_stim_on)
 
 t_bin_use = 10
 
-rates_in = rates4d_cut
-#rates_in = rates04d_cut
+plot_t1 = (np.arange(1*trial_len)-0*trial_len-trial_len/4)*params['dt']
+
+stim_loc = trials_oddball_ctx_cut
+rates_in = [rates4d_cut, ratesf4d_cut, rates04d_cut]
+leg_all = ['ob trained', 'freq trained', 'untrained']
+
+num_dec = len(rates_in)
 
 #rates4d_cut.shape
-#trials_test_oddball_ctx_cut
+#trials_oddball_ctx_cut
 
-dd_red_samp_rates = np.zeros((trial_len, 2, dparams['num_batch'], params['hidden_size']))
+dd_red_samp_rates2, y_data = f_sample_trial_data_dec(rates_in, stim_loc, [1, 0])
 
-has_data = np.zeros((dparams['num_batch']), dtype=bool)
-for n_run in range(dparams['num_batch']):
-    run_data1 = trials_test_oddball_ctx_cut[:,n_run]
-    
-    dd_loc = np.where(run_data1 == 1)[0]
-    red_loc = np.where(run_data1 == 0)[0]
-    
-    if dd_loc.shape[0]:
-        has_data[n_run] = 1
-        
-        samp_dd = np.random.choice(dd_loc, 1)[0]
-        samp_red = np.random.choice(red_loc, 1)[0]
-        
-        dd_red_samp_rates[:, 0, n_run, :] = rates_in[:, samp_dd, n_run, :]
-        dd_red_samp_rates[:, 1, n_run, :] = rates_in[:, samp_red, n_run, :]
-        
-dd_red_samp_rates2 = dd_red_samp_rates[:,:,has_data,:]
+num_run_use = dd_red_samp_rates2[0].shape[1]
 
-num_run_use = dd_red_samp_rates2.shape[2]
-
-cv_groups = f_make_cv_groups(num_run_use, num_cv)
 
 #y_temp = np.hstack((np.ones((num_stim_on)),np.zeros((num_stim_on)))).astype(int).reshape((num_stim_on*2,1))
 
+y_data1 = (y_data==1).astype(int)
+
 y_temp = np.array([1, 0]).reshape([2,1], order = 'F')
 
-perform1_train_test = np.zeros((trial_len, num_cv))
-for n_cv in range(num_cv):
-    test_idx = cv_groups[n_cv]
-    train_idx = ~test_idx
-    num_train = np.sum(train_idx)
-    num_test = np.sum(test_idx)
+perform1_train_test = np.zeros((trial_len, num_cv, num_dec))
+for n_dec in range(num_dec):
+    cv_groups = f_make_cv_groups(num_run_use, num_cv)
     
-    y_train = np.repeat(y_temp, num_train, axis=1)
-    y_train2 = np.reshape(y_train, (2*num_train), order = 'F')
-    
-    y_test = np.repeat(y_temp, num_test, axis=1)
-    y_test2 = np.reshape(y_test, (2*num_test), order = 'F')
-    
-    #temp_data = np.mean(dd_red_samp_rates2[trial_stim_on,:,:,:], axis=0)
-    
-    for n_t in range(trial_len):
-    
-        temp_data = dd_red_samp_rates2[n_t,:,:,:]
+    for n_cv in range(num_cv):
+        test_idx = cv_groups[n_cv]
+        train_idx = ~test_idx
+        num_train = np.sum(train_idx)
+        num_test = np.sum(test_idx)
         
-        train_data = temp_data[:,train_idx,:]
-        train_data2 = np.reshape(train_data, (2*num_train, num_cells), order = 'F')
+        y_train = y_data1[train_idx]
+        y_test = y_data1[test_idx]
         
-        test_data = temp_data[:,test_idx,:]
-        test_data2 = np.reshape(test_data, (2*num_test, num_cells), order = 'F')
+        # y_train = np.repeat(y_temp, num_train, axis=1)
+        # y_train2 = np.reshape(y_train, (2*num_train), order = 'F')
         
-        svc = svm.SVC(kernel='linear', C=1, gamma='auto')
-        svc.fit(train_data2, y_train2)
+        # y_test = np.repeat(y_temp, num_test, axis=1)
+        # y_test2 = np.reshape(y_test, (2*num_test), order = 'F')
         
-        test_pred1 = svc.predict(test_data2)
+        #temp_data = np.mean(dd_red_samp_rates2[trial_stim_on,:,:,:], axis=0)
         
-        perform1_train_test[n_t, n_cv] = np.sum(y_test2 == test_pred1)/test_pred1.shape[0]
+        for n_t in range(trial_len):
+        
+            dd_red_samp_rates3 = dd_red_samp_rates2[n_dec]
+            temp_data = dd_red_samp_rates3[n_t,:,:]
+            
+            train_data = temp_data[train_idx,:]
+ 
+            test_data = temp_data[test_idx,:]
+
+            svc = svm.SVC(kernel='linear', C=1, gamma='auto')
+            svc.fit(train_data, y_train)
+            
+            test_pred1 = svc.predict(test_data)
+            
+            perform1_train_test[n_t, n_cv, n_dec] = np.sum(y_test == test_pred1)/test_pred1.shape[0]
     
 perform1_final = np.mean(perform1_train_test, axis=1)
 
 plt.figure()
-plt.plot(perform1_final)
-
-print('final performance of decoder = %.2f' % (perform1_final*100))
-
-plt.figure()
-plt.plot(train_data2[:20,1])
-
-#%% try analyze rnn preformance with decoder variation 2, strain all t bins at same time
-
-num_cv = 5
-
-trial_stim_on = np.zeros((trial_len), dtype=bool)
-trial_stim_on[5:15] = 1
-
-num_stim_on = np.sum(trial_stim_on)
-
-rates_in = rates4d_cut
-#rates_in = rates04d_cut
-
-#rates4d_cut.shape
-#trials_test_oddball_ctx_cut
-
-dd_red_samp_rates = np.zeros((trial_len, 2, dparams['num_batch'], params['hidden_size']))
-
-has_data = np.zeros((dparams['num_batch']), dtype=bool)
-for n_run in range(dparams['num_batch']):
-    run_data1 = trials_test_oddball_ctx_cut[:,n_run]
-    
-    dd_loc = np.where(run_data1 == 1)[0]
-    red_loc = np.where(run_data1 == 0)[0]
-    
-    if dd_loc.shape[0]:
-        has_data[n_run] = 1
-        
-        samp_dd = np.random.choice(dd_loc, 1)[0]
-        samp_red = np.random.choice(red_loc, 1)[0]
-        
-        dd_red_samp_rates[:, 0, n_run, :] = rates_in[:, samp_dd, n_run, :]
-        dd_red_samp_rates[:, 1, n_run, :] = rates_in[:, samp_red, n_run, :]
-        
-dd_red_samp_rates2 = dd_red_samp_rates[:,:,has_data,:]
-
-num_run_use = dd_red_samp_rates2.shape[2]
-
-cv_groups = f_make_cv_groups(num_run_use, num_cv)
-
-y_trial_off = np.zeros((trial_len), dtype=int)
-y_trial_on = np.zeros((trial_len), dtype=int)
-y_trial_on[trial_stim_on] = 1
-
-y_temp = np.hstack((y_trial_on,y_trial_off)).reshape((trial_len,2,1), order = 'F')
-
-#y_temp = np.array([1, 0]).reshape([2,1], order = 'F')
-
-x_data = dd_red_samp_rates2
-
-if 1:
-    y_temp_train = y_temp[trial_stim_on,:,:]
-    x_in_train = x_data[trial_stim_on,:,:,:]
-else:
-    y_temp_train = y_temp
-    x_in_train = x_data
-num_stim_train = y_temp_train.shape[0]
-
-perform1_total = np.zeros(num_cv)
-perform1_train_test = np.zeros((trial_len, 2, num_cv))
-for n_cv in range(num_cv):
-    test_idx = cv_groups[n_cv]
-    train_idx = ~test_idx
-    num_train = np.sum(train_idx)
-    num_test = np.sum(test_idx)
-    
-    y_train = np.repeat(y_temp_train, num_train, axis=2)
-    y_train2 = np.reshape(y_train, (num_stim_train*2*num_train), order = 'F')
-    
-    y_test = np.repeat(y_temp, num_test, axis=2)
-    y_test2 = np.reshape(y_test, (trial_len*2*num_test), order = 'F')
-    
-    #temp_data = np.mean(dd_red_samp_rates2[trial_stim_on,:,:,:], axis=0)
-    
-    X_train_data = x_in_train[:,:,train_idx,:]
-    X_train_data2 = np.reshape(X_train_data, (num_stim_train*2*num_train, num_cells), order = 'F')
-    
-    X_test_data = x_data[:,:,test_idx,:]
-    X_test_data2 = np.reshape(X_test_data, (trial_len*2*num_test, num_cells), order = 'F')
-    
-    svc = svm.SVC(kernel='linear', C=1, gamma='auto')
-    svc.fit(X_train_data2, y_train2)
-    
-    test_pred1 = svc.predict(X_test_data2)
-    test_pred2 = np.reshape(test_pred1, (trial_len, 2, num_test), order = 'F')
-    
-    test_perform = test_pred1 == y_test2
-    test_perform2 = np.reshape(test_perform, (trial_len, 2, num_test))
-    
-    perform1_total[n_cv] = np.mean(test_perform)
-    
-    perform1_train_test[:,:,n_cv] = np.mean(test_perform2, axis=2)
-
-
-perform1_final = np.mean(perform1_total)
-perform1_binwise = np.mean(perform1_train_test, axis=2)
-
-plt.figure()
-plt.plot(perform1_binwise)
-    
-
-print('final performance of decoder = %.2f' % (perform1_final*100))
+for n_dec in range(num_dec):
+    plt.plot(plot_t1, perform1_final[:,n_dec])
+plt.legend(leg_all)
+plt.title('binwise context decoding')
 
 #%%
 
-comp_plot = comp_out_const3d
-#comp_plot = comp_out0_const3d
+#comp_plot = comp_out_const3d
+#comp_plot = comp_outf_const3d
+comp_plot = comp_out0_const3d
 
 plot_trials = 100
 plot_pc2 = [1, 2]
@@ -1164,17 +1198,17 @@ post_dd1 = 4
 num_tr_ave = pre_dd1 + post_dd1 + 1
 
 #
-trial_ave4d = f_trial_ave_ctx_pad(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = pre_dd1, post_dd = post_dd1)
+trial_ave4d, trial_data_sort, num_dd_trials = f_trial_ave_ctx_pad2(rates4d_cut, trials_oddball_ctx_cut, pre_dd = pre_dd1, post_dd = post_dd1)
 
 trial_ave3d = np.reshape(trial_ave4d, (trial_len*num_tr_ave, num_batch, num_cells), order = 'F')
 
 trial_ave2d = np.reshape(trial_ave3d, (trial_len*num_tr_ave*num_batch, num_cells), order = 'F')
 
 
-proj_data_ta, exp_var_ta = f_run_dred(trial_ave2d, subtr_mean=dred_subtr_mean, method=dred_met)
+proj_data_ta, exp_var_ta, _, _ = f_run_dred(trial_ave2d, subtr_mean=dred_subtr_mean, method=dred_met)
 
-comp_out3d_ta = np.reshape(proj_data_ta, (trial_len*num_tr_ave, num_run, num_cells), order = 'F')
-comp_out4d_ta = np.reshape(proj_data_ta, (trial_len, num_tr_ave, num_run, num_cells), order = 'F')
+comp_out3d_ta = np.reshape(proj_data_ta, (trial_len*num_tr_ave, num_runs, num_cells), order = 'F')
+comp_out4d_ta = np.reshape(proj_data_ta, (trial_len, num_tr_ave, num_runs, num_cells), order = 'F')
 
 
 # isomap
@@ -1183,7 +1217,7 @@ num_comp = 4
 
 embedding = Isomap(n_components=num_comp, metric='cosine')
 X_transformed = embedding.fit_transform(trial_ave2d)
-X_transformed3d = np.reshape(X_transformed, (trial_len*num_tr_ave, num_run, num_comp), order = 'F')
+X_transformed3d = np.reshape(X_transformed, (trial_len*num_tr_ave, num_runs, num_comp), order = 'F')
 
 n_run = 1
 
@@ -1209,17 +1243,16 @@ f_plot_dred_pcs(X_transformed3d, [[0, 1]], ob_data1['red_dd_seq'], color_ctx, co
 
 #%% make trial ave data
 
-trial_ave4d2, trial_data_sort, num_dd_trials = f_trial_ave_ctx_pad2(rates4d_cut, trials_test_oddball_ctx_cut, pre_dd = pre_dd1, post_dd = post_dd1)
+trial_ave4d2, trial_data_sort, num_dd_trials = f_trial_ave_ctx_pad2(rates4d_cut, trials_oddball_ctx_cut, pre_dd = pre_dd1, post_dd = post_dd1, max_trials=5, shuffle_trials=True)
 
-trial_ave4d3 = np.sum(trial_data_sort, axis=2)/ num_dd_trials[None,None,:,None]
 
 num_dd_use = np.min(num_dd_trials).astype(int)
 
-trial_data_sort2 = trial_data_sort[:,:,:num_dd_use,:,:]
+# trial_data_sort2 = trial_data_sort[:,:,:num_dd_use,:,:]
 
 
-# t(tr*num_tr), dd_trial, stim_type(run), cells
-trial_data_sort3 = np.reshape(trial_data_sort2, (trial_len*num_tr_ave, num_dd_use, num_batch, num_cells), order = 'F')
+# # t(tr*num_tr), dd_trial, stim_type(run), cells
+# trial_data_sort3 = np.reshape(trial_data_sort2, (trial_len*num_tr_ave, num_dd_use, num_batch, num_cells), order = 'F')
 
 
 #%% do pca on trial averaged data
@@ -1394,73 +1427,6 @@ for n_pcpl in range(len(plot_pc)):
     plt.ylabel('PC%d' % plot_pc2[1]) 
     plt.title('dPCA proj rates components; %s' % title_tag);
 
-
-#%% analyze rates during oddball  
-# plt.close('all')
-
-pl_params = {}
-
-pl_params['num_runs_plot'] = 3
-pl_params['plot_trials'] = 100
-pl_params['color_ctx'] = 0              # 0 = red; 1 = dd
-pl_params['mark_red'] = 1
-pl_params['mark_dd'] = 1
-pl_params['plot_pc'] = [[1, 2], [3, 4], [5, 6], [7, 8]]
-
-f_plot_dred_rates(trials_test_oddball_ctx_cut, comp_out3d, comp_out4d, ob_data1, pl_params, params, title_tag='trained RNN')
-
-f_plot_dred_rates(trials_test_oddball_ctx_cut, comp_out03d, comp_out04d, ob_data1, pl_params, params, title_tag='untrained RNN')
-
-#%%
-# plt.close('all')
-
-
-title_tag='trained RNN'
-
-num_runs_plot = 5
-plot_trials = pl_params['plot_trials'] #800
-color_ctx = pl_params['color_ctx']  # 0 = red; 1 = dd
-mark_red = pl_params['mark_red']
-mark_dd = pl_params['mark_dd']
-
-n_bt = 0
-
-plot_T = plot_trials*trial_len
-
-plot_pc = pl_params['plot_pc']
-for n_pcpl in range(len(plot_pc)):
-    plot_pc2 = plot_pc[n_pcpl]
-    plt.figure()
-    
-    plt.plot(comp_out_const3d[:plot_T, 0, plot_pc2[0]-1], comp_out_const3d[:plot_T, 0, plot_pc2[1]-1], color='gray')
-    
-    #plt.subplot(1,2,2);
-    for n_bt in range(num_runs_plot): #num_bouts
-    
-        temp_ob_tr = trials_test_oddball_ctx_cut[:,n_bt]
-        
-        red_idx = temp_ob_tr == round(params['num_ctx']-1)
-        dd_idx = temp_ob_tr == params['num_ctx']
-        
-        temp_comp4d = comp_out4d[:,:plot_trials,n_bt,:]
-        
-        plt.plot(comp_out3d[:plot_T, n_bt, plot_pc2[0]-1], comp_out3d[:plot_T, n_bt, plot_pc2[1]-1], color=colors1[ob_data1['red_dd_seq'][color_ctx,n_bt]-1,:])
-        
-        if mark_red:
-            plt.plot(temp_comp4d[4:15,:,plot_pc2[0]-1][:,red_idx[:plot_trials]], temp_comp4d[4:15,:,plot_pc2[1]-1][:,red_idx[:plot_trials]], '.b')
-            plt.plot(temp_comp4d[4,:,plot_pc2[0]-1][red_idx[:plot_trials]], temp_comp4d[4,:,plot_pc2[1]-1][red_idx[:plot_trials]], 'ob')
-    
-        if mark_dd: 
-            plt.plot(temp_comp4d[4:15,:,plot_pc2[0]-1][:,dd_idx[:plot_trials]], temp_comp4d[4:15,:,plot_pc2[1]-1][:,dd_idx[:plot_trials]], '.r')
-            plt.plot(temp_comp4d[4,:,plot_pc2[0]-1][dd_idx[:plot_trials]], temp_comp4d[4,:,plot_pc2[1]-1][dd_idx[:plot_trials]], 'or')
-
-        cur_red = ob_data1['red_dd_seq'][0,n_bt]
-        idx_const = np.where(red_stim_const == cur_red)[0][0]
-        
-        plt.plot(comp_out_const3d[:plot_T, idx_const, plot_pc2[0]-1], comp_out_const3d[:plot_T, idx_const, plot_pc2[1]-1], color=colors1[ob_data1['red_dd_seq'][color_ctx,n_bt]-1,:])
-        
-    plt.title('PCA components; %s' % title_tag); plt.xlabel('PC%d' % plot_pc2[0]); plt.ylabel('PC%d' % plot_pc2[1])
-
 #%% sample rates space
 #plt.close('all')
 
@@ -1530,7 +1496,7 @@ for n_pc in range(len(plot_pc)):
     input0 = stim_templates['freq_input'][:,st_frame, plot_fr]
     input1 = torch.tensor(input0).float().to(params['device'])
     
-    # rates_temp = rates_cut[:, n_tr,:]
+    # rates_temp = rates3d_cut[:, n_tr,:]
     # proj_temp = np.dot(rates_temp, dred_comp_use)
     
     # plt.figure()
@@ -1827,17 +1793,17 @@ choose_idx_method = 'center'  # center or sample
 variab_tr_idx1 = 0;   # 1 = dd 0 = red
 plot_tr_idx1 = 0
 
-f_plot_resp_distances(rates4d_cut, trials_test_oddball_ctx_cut, ob_data1, params, choose_idx = choose_idx_method, variab_tr_idx = variab_tr_idx1, plot_tr_idx = plot_tr_idx1, title_tag='trained RNN')
+f_plot_resp_distances(rates4d_cut, trials_oddball_ctx_cut, ob_data1, params, choose_idx = choose_idx_method, variab_tr_idx = variab_tr_idx1, plot_tr_idx = plot_tr_idx1, title_tag='trained RNN')
 
-f_plot_resp_distances(rates04d_cut, trials_test_oddball_ctx_cut, ob_data1, params, choose_idx = choose_idx_method, variab_tr_idx = variab_tr_idx1, plot_tr_idx = plot_tr_idx1, title_tag='untrained RNN')
+f_plot_resp_distances(rates04d_cut, trials_oddball_ctx_cut, ob_data1, params, choose_idx = choose_idx_method, variab_tr_idx = variab_tr_idx1, plot_tr_idx = plot_tr_idx1, title_tag='untrained RNN')
 
 
 #%% trial average context
 # plt.close('all')
 
-f_plot_mmn(rates4d_cut, trials_test_oddball_ctx_cut, params, title_tag='trained RNN')
+f_plot_mmn(rates4d_cut, trials_oddball_ctx_cut, params, title_tag='trained RNN')
 
-f_plot_mmn(rates04d_cut, trials_test_oddball_ctx_cut, params, title_tag='untrained RNN')
+f_plot_mmn(rates04d_cut, trials_oddball_ctx_cut, params, title_tag='untrained RNN')
 
 #%% spont analysis 
 # plt.close('all')
@@ -1952,8 +1918,6 @@ dpca.protect = ['t']
 Z = dpca.fit_transform(R,trialR)
 
 #%%
-
-time = np.arange(T)
 
 plt.figure(figsize=(16,7))
 plt.subplot(131)
@@ -2071,6 +2035,118 @@ plt.figure()
 plt.plot(L)
 
 plt.plot(proj_data[:,:3])
+
+
+#%% old stuff
+#%% gen test data
+# test control trials
+#trials_test_cont = f_gen_cont_seq(params['num_freq_stim'], params['test_trials_in_sample'], params['test_batch_size'], 1)
+
+if 'test_num_freq_stim' not in params.keys():
+    params['test_num_freq_stim'] = 10
+
+test_cont_stim = np.round(np.linspace(1, params['num_freq_stim'], params['test_num_freq_stim'])).astype(int)
+trials_test_cont_idx = f_gen_cont_seq(params['test_num_freq_stim'], params['test_trials_in_sample'], params['test_batch_size'], 1)-1
+trials_test_cont = test_cont_stim[trials_test_cont_idx]
+
+input_test_cont, output_test_cont = f_gen_input_output_from_seq(trials_test_cont, stim_templates['freq_input'], stim_templates['freq_output'], params)
+
+#%%
+# plt.close('all')
+f_plot_examle_inputs(input_test_cont, output_test_cont, params, 1)
+
+#%% test
+test_cont_freq = f_RNN_test(rnn, loss_freq, input_test_cont, output_test_cont, params, paradigm='freq')
+
+#%%
+#dev_stim = (np.array([3, 6])/10*params['num_freq_stim']).astype(int)
+#red_stim = (np.array([3, 6])/10*params['num_freq_stim']).astype(int)
+
+if 'test_num_freq_stim' not in params.keys():
+    params['test_num_freq_stim'] = 10
+
+dev_stim = ((np.arange(params['test_num_freq_stim'])+1)/params['test_num_freq_stim']*params['num_freq_stim']).astype(int)
+red_stim = ((np.arange(params['test_num_freq_stim'])+1)/params['test_num_freq_stim']*params['num_freq_stim']).astype(int)
+
+
+# test oddball trials
+trials_test_oddball_freq, trials_test_oddball_ctx, _ = f_gen_oddball_seq(dev_stim, red_stim, params['test_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['test_batch_size'], can_be_same = False)
+#trials_test_oddball_freq, trials_test_oddball_ctx = f_gen_oddball_seq([5], params['test_oddball_stim'], params['test_trials_in_sample'], params['dd_frac'], params['num_ctx'], params['test_batch_size'], can_be_same = True)
+
+input_test_oddball, output_test_oddball_freq = f_gen_input_output_from_seq(trials_test_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
+_, output_test_oddball_ctx = f_gen_input_output_from_seq(trials_test_oddball_ctx, stim_templates['freq_input'], stim_templates['ctx_output'], params)
+
+#%%
+# plt.close('all')
+f_plot_examle_inputs(input_test_oddball, output_test_oddball_ctx, params, 5)
+
+f_plot_examle_inputs(input_test_oddball, output_test_oddball_freq, params, 5)
+
+#%%
+test_oddball_freq = f_RNN_test(rnn, loss_freq, input_test_oddball, output_test_oddball_freq, params, paradigm='freq')
+
+test_oddball_ctx = f_RNN_test(rnn, loss_ctx, input_test_oddball, output_test_oddball_ctx, params, paradigm='ctx')
+
+#%%
+# plt.close('all')
+f_plot_train_test_loss(train_out, test_cont_freq, test_oddball_ctx, name_tag1, name_tag2)
+
+#%% test long controls
+
+input_test_cont2 = input_test_cont.reshape((8000*100, 1, 50), order = 'F')
+output_test_cont2 = output_test_cont.reshape((8000*100, 1, 11), order = 'F')
+
+test_cont_freq2 = f_RNN_test(rnn, loss_freq, input_test_cont2, output_test_cont2, params, paradigm='freq')
+
+#%% test oddball
+
+input_test_oddball2 = input_test_oddball.reshape((8000*100, 1, 50), order = 'F')
+output_test_oddball_freq2 = output_test_oddball_freq.reshape((8000*100, 1, 11), order = 'F')
+output_test_oddball_ctx2 = output_test_oddball_ctx.reshape((8000*100, 1, 3), order = 'F')
+
+test_oddball_freq2 = f_RNN_test(rnn, loss_freq, input_test_oddball2, output_test_oddball_freq2, params, paradigm='freq')
+
+test_oddball_ctx2 = f_RNN_test(rnn, loss_ctx, input_test_oddball2, output_test_oddball_ctx2, params, paradigm='ctx')
+
+
+#%% test oddball
+
+#train_oddball = f_RNN_test(rnn, loss_ctx, input_train_oddball_freq, output_train_oddball_ctx, params)
+
+
+#%% add loss of final pass to train data
+
+T, batch_size, num_neurons = train_out['rates'].shape
+
+output2 = torch.tensor(train_out['output'])
+target2 =  torch.tensor(train_out['target_idx'])
+train_out['lossT'] = np.zeros((T, batch_size))
+for n_t in range(T):
+    for n_bt2 in range(batch_size):
+        train_out['lossT'][n_t, n_bt2] = loss_ctx(output2[n_t, n_bt2, :], target2[n_t, n_bt2].long()).item()
+
+# plot train data
+
+f_plot_rates2(train_out, 'train', num_plot_batches = 5)
+
+#%%
+
+f_plot_rates2(test_cont_freq, 'test_cont', num_plot_batches = 5)
+
+f_plot_rates2(test_oddball_freq, 'test_oddball_freq', num_plot_batches = 5)
+
+f_plot_rates2(test_oddball_ctx, 'test_oddball_ctx', num_plot_batches = 5)
+
+#%%
+#f_plot_rates(test_cont_freq, input_test_cont, output_test_cont, 'test cont')
+
+#f_plot_rates(test_oddball, input_test_oddball, output_test_oddball, 'test oddball')
+
+#%%
+
+#f_plot_rates(test_oddball_ctx, input_test_oddball, output_test_oddball_freq, 'test oddball')
+
+#f_plot_rates_ctx(test_oddball_ctx, input_test_oddball2, output_test_oddball_ctx2, 'test oddball')
 
 
 #%% end of usefull stuff
@@ -2250,17 +2326,13 @@ if 0:
     
     
     
-    
-    trials_test_oddball_ctx_cut = trials_test_oddball_ctx[10:,:]
-    
-    
     trial_ave_rd = np.zeros((2, trial_len, num_run, num_cells))
     
     for n_run in range(num_run):
-        idx1 = trials_test_oddball_ctx_cut[:,n_run] == 1
+        idx1 = trials_oddball_ctx_cut[:,n_run] == 1
         trial_ave_rd[0,:,n_run,:] = np.mean(rates4d_cut[idx1,:,n_run,:], axis=0)
         
-        idx1 = trials_test_oddball_ctx_cut[:,n_run] == 2
+        idx1 = trials_oddball_ctx_cut[:,n_run] == 2
         trial_ave_rd[1,:,n_run,:] = np.mean(rates4d_cut[idx1,:,n_run,:], axis=0)
     
     tr_mmn_rd = np.zeros((num_run, 2))

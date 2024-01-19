@@ -16,7 +16,7 @@ class RNN_chaotic(nn.Module):
     def __init__(self, input_size, hidden_size, output_size_freq, output_size_ctx, alpha, add_noise, activation='tanh'): # 
         super(RNN_chaotic, self).__init__()
         
-        self.add_noise = add_noise
+        self.add_noise = float(add_noise)
         self.hidden_size = hidden_size
         self.input_size = input_size
         self.output_size = output_size_freq
@@ -80,7 +80,7 @@ class RNN_chaotic(nn.Module):
         # can try relu here
         
         if self.add_noise:
-            noise1 = torch.randn(rate.shape).to(input_sig.device.type)*np.sqrt(2*self.sigma_rec**2/self.alpha)
+            noise1 = torch.randn(rate.shape).to(input_sig.device.type)*np.sqrt(2*self.sigma_rec**2/self.alpha)*self.add_noise
         else:
             noise1 = 0
         

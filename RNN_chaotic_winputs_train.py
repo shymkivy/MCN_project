@@ -22,7 +22,7 @@ sys.path.append(path1 + 'RNN_scripts')
 
 from f_RNN import f_RNN_trial_ctx_train2, f_RNN_trial_freq_train2 #, f_plot_rnn_weights#, f_trial_ave_pad
 from f_RNN_chaotic import RNN_chaotic
-from f_RNN_utils import f_gen_stim_output_templates, f_plot_train_loss
+from f_RNN_utils import f_gen_stim_output_templates, f_plot_train_loss, f_gen_name_tag
 
 
 import numpy as np
@@ -34,8 +34,8 @@ from datetime import datetime
 
 #%% input params
 
-params = {'train_type':                     'freq2',     #   oddball2, freq2  standard, linear, oddball, freq_oddball,
-          'device':                         'cuda',         # 'cpu', 'cuda'
+params = {'train_type':                     'oddball2',     #   oddball2, freq2  standard, linear, oddball, freq_oddball,
+          'device':                         'cpu',         # 'cpu', 'cuda'
           
           'stim_duration':                  0.5,
           'isi_duration':                   0.5,
@@ -47,23 +47,18 @@ params = {'train_type':                     'freq2',     #   oddball2, freq2  st
           
           'train_batch_size':               100,
           'train_trials_in_sample':         20,
-          'train_num_samples':              40000,
+          'train_num_samples':              120000,
           'train_loss_weights':             [0.05, 0.95], # isi, red, dd [1e-5, 1e-5, 1] [0.05, 0.05, 0.9], [0.05, 0.95]  [1/.5, 1/.45, 1/0.05]
-          'train_add_noise':                1,               # sqrt(2*dt/tau*sigma_req^2) * norm(0,1)
+          'train_add_noise':                1,               # sqrt(2*dt/tau*sigma_req^2) * norm(0,1); can be true false or a float, which will change the magnitude of noise
 
           'train_repeats_per_samp':         1,
           'train_reinit_rate':              0,
           
-          'test_batch_size':                100,
-          'test_trials_in_sample':          400,
-          'test_oddball_stim':              np.arange(10)+1,        #[3, 5, 7],
-          'test_num_freq_stim':             10,
-          
           'input_size':                     50,
-          'hidden_size':                    25,            # number of RNN neurons
+          'hidden_size':                    250,            # number of RNN neurons
           'g':                              1,  # 1            # recurrent connection strength 
           'tau':                            .5,
-          'learning_rate':                  0.001,           # 0.005
+          'learning_rate':                  0.00004,           # 0.005
           'activation':                     'ReLU',             # ReLU tanh
           'normalize_input':                False,
           
@@ -77,27 +72,23 @@ now1 = datetime.now()
 params['train_date'] = now1
 
 
+#torch.get_num_threads()
+torch.set_num_threads(8)
+
 #%%
 
-if 'train_date' in params.keys():
-    now2 = params['train_date']
-else:
-    now2 = now1
+if 'train_date' not in params.keys():
+    params['train_date'] = datetime.now()
+
 if 'activation' not in params.keys():
     params['activation'] = 'tanh'
         
 
-save_tag = ''
-
-name_tag1 = '%s%s_%dctx_%dtrainsamp_%dneurons_%s_%dtau_%ddt' % (save_tag, params['train_type'], params['num_ctx'],
-            params['train_num_samples'], params['hidden_size'], params['activation'], params['tau']*1000, params['dt']*1000)
-
-name_tag2 = '%dtrials_%dstim_%dbatch_%.4flr_noise%d_%d_%d_%d_%dh_%dm' % (params['train_trials_in_sample'], params['num_freq_stim'], params['train_batch_size'], params['learning_rate'], params['train_add_noise'],
-             now2.year, now2.month, now2.day, now2.hour, now2.minute)
+name_tag1, name_tag2 = f_gen_name_tag(params)
 
 name_tag  = name_tag1 + '_' + name_tag2
-
 fname_RNN_save = name_tag
+
 
 #%% generate train data
 # generate stim templates

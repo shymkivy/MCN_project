@@ -9,10 +9,15 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
-from matplotlib import colors
+#import matplotlib.patches as patches
+#from matplotlib import colors
    
+#import time
+
 from scipy import signal
-    
+from scipy.spatial.distance import pdist, squareform #, cdist, squareform
+
+
 #%%
 def f_gen_stim_output_templates(params):
     # generate stim templates
@@ -72,7 +77,7 @@ def f_gen_stim_output_templates(params):
             plt.imshow(out_temp_all[:,:,n_st])
             plt.suptitle('stim %d' % n_st)
     
-    out_ctx = out_temp_all[:params['num_ctx']+1,:,:params['num_ctx']+1]
+    out_ctx = out_temp_all[:3,:,:3]
     
     stim_templates = {}
     stim_templates['freq_input'] = stim_temp_all
@@ -152,7 +157,9 @@ def f_gen_cont_seq(num_stim, num_trials, batch_size = 1, num_samples = 1):
     
     return trials_out
 
-def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, num_ctx, batch_size = 1, num_samples = 1, can_be_same = False, can_have_no_dd = False):
+def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, num_samples = 1, can_be_same = False, can_have_no_dd = False, ob_type='one_deviant', freq_selection='random', prepend_zeros=0):
+    
+    # one_deviant or many_deviant
     
     dev_stim2 = np.asarray(dev_stim)
     red_stim2 = np.asarray(red_stim)
@@ -162,53 +169,74 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, num_ctx, batch_si
     
     red_dd_freq = np.zeros((2, batch_size* num_samples)).astype(int)
     
-    
     # set dd trials (coin flip)
     idx_dd = np.less_equal(np.random.random((num_trials, batch_size * num_samples)), dd_frac)
     
-    if not can_have_no_dd:
-        num_dd = np.sum(idx_dd, axis=0)
-        no_dd_idx = num_dd == 0
-        num_no_dd = np.sum(num_dd == 0)
-        while num_no_dd:
-            new_idx_dd = np.less_equal(np.random.random((num_trials, num_no_dd)), dd_frac)
-            
-            idx_dd[:, no_dd_idx] = new_idx_dd
-            
+    if dd_frac:
+        if not can_have_no_dd:
             num_dd = np.sum(idx_dd, axis=0)
-            
             no_dd_idx = num_dd == 0
-            
             num_no_dd = np.sum(num_dd == 0)
-
-    for n_samp in range(num_samples*batch_size):
-
-        idx_dd2 = idx_dd[:, n_samp]
-        
-        
-        if can_be_same:
+            while num_no_dd:
+                new_idx_dd = np.less_equal(np.random.random((num_trials, num_no_dd)), dd_frac)
+                
+                idx_dd[:, no_dd_idx] = new_idx_dd
+                
+                num_dd = np.sum(idx_dd, axis=0)
+                
+                no_dd_idx = num_dd == 0
+                
+                num_no_dd = np.sum(num_dd == 0)
+    else:
+        print('dd probability set to zero')
+    
+    if freq_selection == 'random':
+        for n_samp in range(num_samples*batch_size):
+    
+            idx_dd2 = idx_dd[:, n_samp]
+            
             stim_red = np.random.choice(red_stim2, size=1)
-            stim_dev = np.random.choice(dev_stim2, size=1)
-        else:
-            if dev_stim2.shape[0]>1 or red_stim2.shape[0]>1:
-                is_same=1
-                while is_same:
-                    stim_red = np.random.choice(red_stim2, size=1)
-                    stim_dev = np.random.choice(dev_stim2, size=1)
-                    if stim_dev != stim_red:
-                        is_same = 0
-            else:
-                stim_red = np.random.choice(red_stim2, size=1)
-                stim_dev = np.random.choice(dev_stim2, size=1)
+            
+            dev_stim3 = dev_stim2.copy()
+            if dev_stim2.shape[0]>1:
+                if not can_be_same:
+                    dev_stim3 = dev_stim3[dev_stim2 != stim_red]
+            
+            red_dd_freq[0,n_samp] = stim_red
+            
+            if ob_type=='one_deviant':
+                stim_dev = np.random.choice(dev_stim3, size=1)
+                red_dd_freq[1,n_samp] = stim_dev
+            elif ob_type=='many_deviant':
+                stim_dev = np.random.choice(dev_stim3, size=np.sum(idx_dd2))
+            
+    
+            trials_oddball_freq[idx_dd2, n_samp] = stim_dev
+            trials_oddball_freq[~idx_dd2, n_samp] = stim_red
+            
+            trials_oddball_ctx[idx_dd2, n_samp] = 2
+            trials_oddball_ctx[~idx_dd2, n_samp] = 1
+    elif freq_selection == 'sequential':
+
+        num_red = len(red_stim)
+        red_reps = np.ceil(num_samples*batch_size/num_red).astype(int)
+        red_all = np.tile(np.array(red_stim), red_reps)
         
-        red_dd_freq[0,n_samp] = stim_red
-        red_dd_freq[1,n_samp] = stim_dev
+        num_dev = len(dev_stim)
+        dev_rep = np.ceil(num_red/num_dev).astype(int)
+        dev_all = np.reshape(np.tile(np.reshape(np.array(dev_stim), [1, len(dev_stim)], order='F'), [num_red, dev_rep]), [num_red*num_dev*dev_rep], order='F')
         
-        trials_oddball_freq[idx_dd2, n_samp] = stim_dev
-        trials_oddball_freq[~idx_dd2, n_samp] = stim_red
+        red_dd_freq = np.vstack((red_all[:num_samples*batch_size], dev_all[:num_samples*batch_size]))
         
-        trials_oddball_ctx[idx_dd2, n_samp] = 2
-        trials_oddball_ctx[~idx_dd2, n_samp] = 1
+        for n_samp in range(num_samples*batch_size):
+            idx_dd2 = idx_dd[:, n_samp]
+            
+            trials_oddball_freq[idx_dd2, n_samp] = red_dd_freq[1,n_samp]
+            trials_oddball_freq[~idx_dd2, n_samp] = red_dd_freq[0,n_samp]
+            
+            trials_oddball_ctx[idx_dd2, n_samp] = 2
+            trials_oddball_ctx[~idx_dd2, n_samp] = 1
+        
         
     trials_oddball_freq2 = trials_oddball_freq.reshape((num_trials, batch_size, num_samples), order='F')
     trials_oddball_ctx2 = trials_oddball_ctx.reshape((num_trials, batch_size, num_samples), order='F')
@@ -219,11 +247,17 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, num_ctx, batch_si
         trials_oddball_ctx2 = trials_oddball_ctx2[:,:,0]
         red_dd_freq2 = red_dd_freq2[:,:,0]
     
-    if num_ctx == 1:
-        trials_oddball_ctx2 = trials_oddball_ctx2 - 1  
-
+    # if num_ctx == 1:
+    #     trials_oddball_ctx2 = trials_oddball_ctx2 - 1  
     
-    return trials_oddball_freq2, trials_oddball_ctx2, red_dd_freq2
+    if prepend_zeros:
+        trials_oddball_ctx3 = np.vstack((np.zeros((prepend_zeros, batch_size), dtype=int), trials_oddball_ctx2))
+        trials_oddball_freq3 = np.vstack((np.zeros((prepend_zeros, batch_size), dtype=int), trials_oddball_freq2))
+    else:
+        trials_oddball_ctx3 = trials_oddball_ctx2
+        trials_oddball_freq3 = trials_oddball_freq2
+    
+    return trials_oddball_freq3, trials_oddball_ctx3, red_dd_freq2
 
 #%%
 
@@ -271,9 +305,7 @@ def f_gen_input_output_from_seq(input_trials, stim_templates, output_templates, 
     if num_samp == 1:
         input_mat_out = input_mat_out[:,:,:,0]
         output_mat_out = output_mat_out[:,:,:,0]
-    
-      
-    
+
     return input_mat_out, output_mat_out
     
 #%%
@@ -486,32 +518,218 @@ def f_plot_train_test_loss(train_out, test_out_cont, test_out_ob, name_tag1, nam
 #     plt.figure()
 #     plt.plot(input_mat.std(axis=0))
 
-#%% decoder make cross validation groups
+
+    
+
+#%%
+def f_gen_name_tag(params, save_tag=''):
+    now2 = params['train_date']
+    
+    
+    if 'train_num_samples' in params.keys():
+        num_samples = params['train_num_samples']
+    else:
+        num_samples = 0
+        if params['train_type'] == 'oddball2':
+            if 'train_num_samples_ctx' in params.keys():
+                num_samples = params['train_num_samples_ctx']
+        elif params['train_type'] == 'freq2':
+            if 'train_num_samples_ctx' in params.keys():
+                num_samples = params['train_num_samples_freq']
+    
+    name_tag1 = '%s%s_%dctx_%dtrainsamp_%dneurons_%s_%dtau_%ddt' % (save_tag, params['train_type'], params['num_ctx'],
+                num_samples, params['hidden_size'], params['activation'], params['tau']*1000, params['dt']*1000)
+
+    name_tag2 = '%dtrials_%dstim_%dbatch_%.4flr_noise%d_%d_%d_%d_%dh_%dm' % (params['train_trials_in_sample'], params['num_freq_stim'], params['train_batch_size'], params['learning_rate'], params['train_add_noise'],
+                 now2.year, now2.month, now2.day, now2.hour, now2.minute)
+    
+    return name_tag1, name_tag2
+
+#%%
+def f_reshape_rates(rates3d_in, num_trials, trial_len, num_skip_trials = 0):
+    num_t, num_batch, num_cells = rates3d_in.shape  #(8000, 100, 25)
+    
+    num_trials2 = num_trials - num_skip_trials
+    
+    rates4d = np.reshape(rates3d_in, (trial_len, num_trials, num_batch, num_cells), order = 'F')
+    
+    rates4d_cut = rates4d[:,num_skip_trials:,:,:]
+    rates3d_cut = np.reshape(rates4d_cut, (trial_len*num_trials2, num_batch, num_cells), order = 'F')
+    rates2d_cut = np.reshape(rates3d_cut, (trial_len*num_trials2*num_batch, num_cells), order = 'F')
+    
+    return rates4d_cut, rates3d_cut, rates2d_cut
+
+#%%
+
+def f_plot_exp_var(var_list, leg_list, title_tag='', max_comps_plot=9999):
+    num_pl = len(var_list)
+    
+    comp_plot = np.min((len(var_list[0]), max_comps_plot)).astype(int)
+    
+    plt.figure()
+    for n_var in range(num_pl):
+        plt.plot(np.arange(comp_plot)+1, var_list[n_var][:comp_plot], 'o-')
+    plt.ylabel('Fraction explained')
+    plt.xlabel('Components')
+    plt.title('Explained Variance %s' % title_tag); 
+    plt.legend(leg_list)
+    plt.ylim([-0.05, 1.05])
 
 
-def f_make_cv_groups(num_trials, num_cv_groups):
+#%%
+
+def f_plot_freq_space_distances_control(rates_in, trial_types, plot_t, labels, base_correct = True, metric = 'euclidean'):
     
-    cv_tr_idx = np.arange(num_trials)
-    np.random.shuffle(cv_tr_idx)  
+    resp_time_idx = np.logical_and(plot_t>0.25, plot_t<0.5)
+    base_idx = plot_t<0
     
-    test_groups = np.zeros((num_cv_groups, num_trials), dtype=bool)
+    if base_correct:
+        title_tag1 = '; basecorr'
+    else:
+        title_tag1 = ''
     
-    for n_cv in range(num_cv_groups):
+    freqs1 = np.sort(np.unique(trial_types))
+    num_freqs = freqs1.shape[0]
+    num_net = len(rates_in)
     
-        start1 = np.floor(n_cv*(num_trials/num_cv_groups)).astype(int)
-        end1 = np.floor((n_cv+1)*(num_trials/num_cv_groups)).astype(int)
+    dist_all = []
+    
+    for n_net in range(num_net):
+        rates1 = rates_in[n_net]
         
-        test_groups[n_cv][cv_tr_idx[start1:end1]] = 1
+        num_bins3, num_trials3, num_runs3, num_cells3 = rates1.shape
+        resp_all3 = np.zeros((num_freqs, num_cells3))
+        
+        for n_freq in range(len(freqs1)):
+            freq1 = freqs1[n_freq]
+            
+            for n_run in range(num_runs3):
+                
+                tr_idx = trial_types[:,n_run] == freq1
+                rates_cont = rates1[:,tr_idx,n_run,:]
+                
+                
+                if base_correct:
+                    base1 = np.mean(rates_cont[base_idx,:,:], axis=0)[None,:,:]
+                    rates_contn = rates_cont - base1
+                else:
+                    rates_contn = rates_cont
+                        
+                tr_ave1 = np.mean(rates_contn[:,:,:], axis=1)
+                
+                resp_all3[n_freq, :] = np.mean(tr_ave1[resp_time_idx], axis=0)
+        
+        if metric == 'euclidean':
+            dist1 = pdist(resp_all3, metric='euclidean')
+            dist2 = squareform(dist1)
+                  
+            plt.figure()
+            plt.imshow(dist2)
+            plt.colorbar()
+            plt.title('euclidead distances; control; %s%s' % (labels[n_net], title_tag1))
+            plt.xlabel('frequency')
+            plt.ylabel('frequency')
+        
+        elif metric == 'cosine':
+            dist1 = pdist(resp_all3, metric='cosine')
+            dist2 = squareform(dist1)
+                  
+            plt.figure()
+            plt.imshow(1 - dist2)
+            plt.colorbar()
+            plt.title('cosine similarity; control; %s%s' % (labels[n_net], title_tag1))
+            plt.xlabel('frequency')
+            plt.ylabel('frequency')
+        
+        dist_all.append(dist2)
     
-    return test_groups
+    return dist_all
 
+#%%
+def f_plot_freq_space_distances_oddball(rates_in, trial_types_ctx, red_dd_seq, plot_t, labels, base_correct = True, metric='euclidean'):
+    
+    resp_time_idx = np.logical_and(plot_t>0.25, plot_t<0.5)
+    base_idx = plot_t<0
+    
+    if base_correct:
+        title_tag1 = '; basecorr'
+    else:
+        title_tag1 = ''
+    
+    ctx_lab = ['redundant', 'deviant']
+    
+    freqs1 = np.sort(np.unique(red_dd_seq))
+    num_freqs = freqs1.shape[0]
+    num_net = len(rates_in)
+    
+    dist_ctx = []
+    
+    for n_ctx in range(2):
+        dist_net = []
+        
+        for n_net in range(num_net):
+            rates1 = rates_in[n_net]
+            
+            num_bins3, num_trials3, num_runs3, num_cells3 = rates1.shape
+            
+            
+            
+            resp_all3 = np.zeros((num_freqs, num_cells3))
+            
+            
+            for n_freq in range(len(freqs1)):
+                freq1 = freqs1[n_freq]
+                
+                ctx_idx = red_dd_seq[n_ctx, :] == freq1
+                
+                tr_all_rates = []
+                
+                for n_run in range(num_runs3):
+                    if ctx_idx[n_run]:
 
-
-
-
-
-
-
-
+                        tr_idx = trial_types_ctx[:,n_run] == n_ctx
+                        rates2 = rates1[:,tr_idx,n_run,:]
+                        
+                        if base_correct:
+                            base1 = np.mean(rates2[base_idx,:,:], axis=0)[None,:,:]
+                            rates2n = rates2 - base1
+                        else:
+                            rates2n = rates2
+                        
+                        tr_all_rates.append(rates2n)    
+                
+                rates3 = np.concatenate(tr_all_rates, axis=1)
+                
+                tr_ave1 = np.mean(rates3, axis=1)
+                
+                resp_all3[n_freq, :] = np.mean(tr_ave1[resp_time_idx], axis=0)
+                    
+            if metric == 'euclidean':
+                dist1 = pdist(resp_all3, metric=metric)
+                dist2 = squareform(dist1)
+                      
+                plt.figure()
+                plt.imshow(dist2)
+                plt.colorbar()
+                plt.title('euclidead distances; %s; %s%s' % (ctx_lab[n_ctx], labels[n_net], title_tag1))
+                plt.xlabel('frequency')
+                plt.ylabel('frequency')
+            elif metric == 'cosine':
+            
+                dist1 = pdist(resp_all3, metric='cosine')
+                dist2 = squareform(dist1)
+                      
+                plt.figure()
+                plt.imshow(1 - dist2)
+                plt.colorbar()
+                plt.title('cosine similarity; %s; %s%s' % (ctx_lab[n_ctx], labels[n_net], title_tag1))
+                plt.xlabel('frequency')
+                plt.ylabel('frequency')
+                
+            dist_net.append(dist2)
+            
+        dist_ctx.append(dist_net)
+        
+    return dist_ctx
 
 
