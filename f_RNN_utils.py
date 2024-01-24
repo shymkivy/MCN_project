@@ -223,8 +223,8 @@ def f_gen_oddball_seq(dev_stim, red_stim, num_trials, dd_frac, batch_size = 1, n
         red_all = np.tile(np.array(red_stim), red_reps)
         
         num_dev = len(dev_stim)
-        dev_rep = np.ceil(num_red/num_dev).astype(int)
-        dev_all = np.reshape(np.tile(np.reshape(np.array(dev_stim), [1, len(dev_stim)], order='F'), [num_red, dev_rep]), [num_red*num_dev*dev_rep], order='F')
+        dev_rep = np.ceil(red_reps/num_dev).astype(int)
+        dev_all = np.reshape(np.tile(np.reshape(np.array(dev_stim), [1, num_dev], order='F'), [num_red, dev_rep]), [num_red*num_dev*dev_rep], order='F')
         
         red_dd_freq = np.vstack((red_all[:num_samples*batch_size], dev_all[:num_samples*batch_size]))
         
@@ -733,3 +733,4 @@ def f_plot_freq_space_distances_oddball(rates_in, trial_types_ctx, red_dd_seq, p
     return dist_ctx
 
 
+        

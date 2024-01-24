@@ -323,3 +323,166 @@ def f_trial_ave_ctx_rd(rates4d_cut, trials_types_cut, params):
         trial_ave_rd[1,:,n_run,:] = np.mean(rates4d_cut[:,idx1,n_run,:], axis=1)
     
     return trial_ave_rd
+
+#%%
+def f_euc_dist(vec1, vec2):
+    
+    dist_sq = (vec1 - vec2)**2
+    
+    if len(dist_sq.shape) == 1:
+        dist1 = np.sqrt(np.sum(dist_sq, axis=0))
+    else:
+        dist1 = np.sqrt(np.sum(dist_sq, axis=1))
+    
+    return dist1
+
+def f_cos_sim(vec1, vec2):
+    
+    vec1_mag = np.sqrt(np.sum(np.abs(vec1.T)**2, axis=1))
+    vec2_mag = np.sqrt(np.sum(np.abs(vec2)**2, axis=0))
+    
+    vec_angles = np.dot(vec1.T, vec2)/(vec1_mag*vec2_mag)
+    
+    return vec_angles
+
+
+#%%
+def f_gather_dev_trials(rates4d_cut, trials_oddball_ctx_cut, red_dd_seq):
+
+    num_trials, num_runs = trials_oddball_ctx_cut.shape
+    
+    freq_red_all = np.unique(red_dd_seq[0,:])
+    freqs_dev_all = np.unique(red_dd_seq[1,:])
+    num_freq_r = len(freq_red_all)
+    num_freq_d = len(freqs_dev_all)
+    
+    trials_rd = []
+    for n_fr in range(num_freq_r):
+        trials_d = []
+        for n_fd in range(num_freq_d):
+            trials_d.append([])
+        trials_rd.append(trials_d)
+    
+    
+    for n_run in range(num_runs):
+        freq_red = red_dd_seq[0,n_run]
+        freq_dev = red_dd_seq[1,n_run]
+        
+        red_loc = np.where(freq_red_all==freq_red)[0][0]
+        dev_loc = np.where(freqs_dev_all==freq_dev)[0][0]
+        
+        #dd_idx = trials_oddball_freq_cut[:,n_run] == freq_dev
+        dd_idx = trials_oddball_ctx_cut[:,n_run] == 1
+        
+        temp_rates = rates4d_cut[:,dd_idx,n_run,:]
+        
+        trials_rd[red_loc][dev_loc].append(temp_rates)
+    
+    return trials_rd
+
+def f_gather_red_trials(rates4d_cut, trials_oddball_freq_cut, trials_oddball_ctx_cut, red_dd_seq, red_idx = 3):
+
+    num_trials, num_runs = trials_oddball_freq_cut.shape
+    
+    freq_red_all = np.unique(red_dd_seq[0,:])
+    freqs_dev_all = np.unique(red_dd_seq[1,:])
+    num_freq_r = len(freq_red_all)
+    num_freq_d = len(freqs_dev_all)
+    
+    
+    trials_rd = []
+    for n_fr in range(num_freq_r):
+        trials_d = []
+        for n_fd in range(num_freq_d):
+            trials_d.append([])
+        trials_rd.append(trials_d)
+    
+    for n_run in range(num_runs):
+        freq_red = red_dd_seq[0,n_run]
+        freq_dev = red_dd_seq[1,n_run]
+
+        red_loc = np.where(freq_red_all==freq_red)[0][0]
+        dev_loc = np.where(freqs_dev_all==freq_dev)[0][0]
+        
+        trials_oddball_freq_cut2 = trials_oddball_freq_cut[:,n_run]
+        trials_oddball_ctx_cut2 = trials_oddball_ctx_cut[:,n_run]
+        trials_oddball_ctx_cut3 = trials_oddball_ctx_cut2[trials_oddball_freq_cut2>0]
+        
+        temp_rates = rates4d_cut[:,:,n_run,:]
+        temp_rates2 = temp_rates[:,trials_oddball_freq_cut2>0,:]
+        
+        trials_oddball_red_fwr, trials_oddball_red_rev = f_label_redundants(trials_oddball_ctx_cut3[:,None])
+        
+        if red_idx>0:
+            red_idx2 = trials_oddball_red_fwr[:,0] == red_idx
+        else:
+            red_idx2 = trials_oddball_red_rev[:,0] == red_idx
+                
+        temp_rates3 = temp_rates2[:,red_idx2,:]
+        
+        trials_rd[red_loc][dev_loc].append(temp_rates3)
+    
+    return trials_rd
+
+#%%
+def f_analyze_trial_vectors(trials_rd, base_time, on_time):
+    
+    num_freq_r = len(trials_rd)
+    num_freq_d = len(trials_rd[0])
+    
+    trial_len, num_trials, num_cells = trials_rd[0][0][0].shape
+    
+    base_mean_rd = np.zeros((num_freq_r, num_freq_d, num_cells))
+    on_mean_rd = np.zeros((num_freq_r, num_freq_d, num_cells))
+    
+    base_std_rd = np.zeros((num_freq_r, num_freq_d, num_cells))
+    on_std_rd = np.zeros((num_freq_r, num_freq_d, num_cells))
+    
+    base_dist_means_rd = np.zeros((num_freq_r, num_freq_d))
+    on_dist_means_rd = np.zeros((num_freq_r, num_freq_d))
+    
+    mean_indiv_mag_rd = np.zeros((num_freq_r, num_freq_d))
+    mean_mag_rd = np.zeros((num_freq_r, num_freq_d))
+    mean_angles_rd = np.zeros((num_freq_r, num_freq_d))
+    
+    mean_vec_dir = np.zeros((num_freq_r, num_freq_d, num_cells))
+     
+    for n_fr in range(num_freq_r):
+        for n_fd in range(num_freq_d):
+            temp_data = np.concatenate(trials_rd[n_fr][n_fd], axis=1)
+            
+            # baselibes and on of each trial
+            temp_base = np.mean(temp_data[base_time,:,:], axis=0)
+            temp_on = np.mean(temp_data[on_time,:,:], axis=0)
+            
+            # base and on trial ave
+            temp_base_mean = np.mean(temp_base, axis=0)
+            temp_on_mean = np.mean(temp_on, axis=0)
+            
+            # save trial aves
+            base_mean_rd[n_fr, n_fd,:] = temp_base_mean
+            on_mean_rd[n_fr, n_fd,:] = temp_on_mean
+            
+            mean_vec_dir[n_fr, n_fd,:] = temp_on_mean - temp_base_mean
+            
+            # base and on trial std
+            base_std_rd[n_fr, n_fd,:] = np.std(temp_base, axis=0)
+            on_std_rd[n_fr, n_fd,:] = np.std(temp_on, axis=0)
+            
+            # distances from mean on each trial
+            base_dist_means_rd[n_fr, n_fd] = np.mean(f_euc_dist(temp_base, temp_base_mean))
+            on_dist_means_rd[n_fr, n_fd] = np.mean(f_euc_dist(temp_on, temp_on_mean))
+            
+            mean_indiv_mag_rd[n_fr, n_fd] = np.mean(f_euc_dist(temp_base, temp_on))
+            
+            mean_mag_rd[n_fr, n_fd] = f_euc_dist(temp_base_mean, temp_on_mean)
+            
+            trial_directions = temp_on - temp_base
+            mean_direction = np.mean(trial_directions, axis=0)
+    
+            vec_angles = f_cos_sim(trial_directions.T, mean_direction)
+            #vec_angles2 = 1 - pdist(np.vstack((mean_direction, trial_directions)), 'cosine')
+            
+            mean_angles_rd[n_fr, n_fd] = np.mean(vec_angles)
+            
+    return base_dist_means_rd, on_dist_means_rd, mean_indiv_mag_rd, mean_mag_rd, mean_angles_rd, mean_vec_dir

@@ -24,9 +24,9 @@ import time
 
 from f_analysis import f_plot_rates2, f_plot_rates_only # seriation, 
 from f_RNN import f_RNN_test, f_RNN_test_spont, f_gen_ob_dset, f_gen_cont_dset #, f_trial_ave_pad, f_gen_equal_freq_space
-from f_RNN_process import f_trial_ave_ctx_pad, f_trial_ave_ctx_pad2, f_trial_sort_data_pad, f_trial_sort_data_ctx_pad, f_label_redundants, f_get_rdc_trav
+from f_RNN_process import f_trial_ave_ctx_pad, f_trial_ave_ctx_pad2, f_trial_sort_data_pad, f_trial_sort_data_ctx_pad, f_label_redundants, f_get_rdc_trav, f_euc_dist, f_cos_sim, f_gather_dev_trials, f_gather_red_trials, f_analyze_trial_vectors
 from f_RNN_dred import f_run_dred
-from f_RNN_plots import f_plot_dred_rates, f_plot_dred_rates2, f_plot_dred_rates3, f_plot_dred_rates3d, f_plot_traj_speed, f_plot_resp_distances, f_plot_mmn, f_plot_mmn2, f_plot_mmn_dist, f_plot_mmn_freq, f_plot_dred_pcs, f_plot_rnn_weights2, f_plot_run_dist
+from f_RNN_plots import f_plot_dred_rates, f_plot_dred_rates2, f_plot_dred_rates3, f_plot_dred_rates3d, f_plot_traj_speed, f_plot_resp_distances, f_plot_mmn, f_plot_mmn2, f_plot_mmn_dist, f_plot_mmn_freq, f_plot_dred_pcs, f_plot_rnn_weights2, f_plot_run_dist, f_plot_shadederrorbar
 from f_RNN_chaotic import RNN_chaotic
 from f_RNN_utils import f_gen_stim_output_templates, f_gen_cont_seq, f_gen_oddball_seq, f_gen_input_output_from_seq, f_plot_examle_inputs, f_plot_train_loss, f_plot_train_test_loss, f_gen_name_tag, f_reshape_rates, f_plot_exp_var, f_plot_freq_space_distances_control, f_plot_freq_space_distances_oddball
 from f_RNN_decoder import f_make_cv_groups, f_sample_trial_data_dec, f_run_binwise_dec, f_plot_binwise_dec, f_run_one_shot_dec, f_plot_one_shot_dec_bycat, f_plot_one_shot_dec_iscat
@@ -245,7 +245,7 @@ num_skip_trials = 90
 
 dparams = {}
 
-num_runs = 200
+num_runs = 800
 num_trials_ob = 250
 num_dev_stim = 20
 num_red_stim = 20
@@ -258,7 +258,7 @@ num_cont_stim = 20
 params2 = params.copy()
 params2['dd_frac'] = 0.1
 
-ob_data1 = f_gen_ob_dset(params2, stim_templates, num_trials=num_trials_ob, num_runs=num_runs, num_freqs=params['num_freq_stim'], num_dev_stim=num_dev_stim, num_red_stim=num_red_stim, stim_sample='equal', ob_type='one_deviant', freq_selection='random', can_be_same = False, can_have_no_dd = True, prepend_zeros=num_prepend_zeros)       # stim_sample= 'random' or 'equal'; ob_type='one_deviant' or 'many_deviant', '100plus1'
+ob_data1 = f_gen_ob_dset(params2, stim_templates, num_trials=num_trials_ob, num_runs=num_runs, num_freqs=params['num_freq_stim'], num_dev_stim=num_dev_stim, num_red_stim=num_red_stim, stim_sample='equal', ob_type='one_deviant', freq_selection='sequential', can_be_same = False, can_have_no_dd = True, prepend_zeros=num_prepend_zeros)       # stim_sample= 'random' or 'equal'; ob_type='one_deviant' or 'many_deviant', '100plus1'
 
 
 # const inputs data
@@ -502,10 +502,10 @@ trial_ave_rdc = f_get_rdc_trav(trials_oddball_ctx_cut, rates4d_cut, trials_cont_
 base_time = plot_t1<0
 on_time = np.logical_and(plot_t1>.200, plot_t1<.5)
 
-trial_ave_c = trial_ave_rdc[:,2,:,:]
+trial_ave_use = trial_ave_rdc[:,0,:,:]
 
-base_act = np.mean(trial_ave_c[base_time,:,:], axis=0)
-on_act = np.mean(trial_ave_c[on_time,:,:], axis=0)
+base_act = np.mean(trial_ave_use[base_time,:,:], axis=0)
+on_act = np.mean(trial_ave_use[on_time,:,:], axis=0)
 
 freq_dist = np.zeros((num_freqs))
 freq_dir = np.zeros((num_freqs, num_cells))
@@ -573,8 +573,496 @@ for n_pc in range(len(pc_plot)):
     plt.ylabel(pc1[1])
 
 
+#%% control data
+
+base_time = np.logical_and(plot_t1>-.250, plot_t1<0)
+on_time = np.logical_and(plot_t1>.200, plot_t1<.5)
+
+num_trials, num_runs = trials_cont_cut.shape
+
+freqs_all = np.unique(red_dd_seq)
+num_freqs = freqs_all.shape[0]
+
+trials_all = []
+
+n_run = 0
+for n_freq in range(num_freqs):
+    freq1 = freqs_all[n_freq]
+    trials_all2 = []
+    for n_run in range(num_runs):
+        tr_idx = trials_cont_cut[:,n_run] == freq1
+    
+        temp_data = rates_cont_freq4d_cut[:,tr_idx,n_run,:]
+        
+        trials_all2.append(temp_data)
+    
+    trials_all.append(trials_all2)
+
+
+base_mean = np.zeros((num_freqs, num_runs, num_cells))
+on_mean = np.zeros((num_freqs, num_runs, num_cells))
+
+base_std = np.zeros((num_freqs, num_runs, num_cells))
+on_std = np.zeros((num_freqs, num_runs, num_cells))
+
+base_dist_mean = np.zeros((num_freqs, num_runs))
+on_dist_mean = np.zeros((num_freqs, num_runs))
+
+mean_indiv_mag = np.zeros((num_freqs, num_runs))
+
+mean_mag = np.zeros((num_freqs, num_runs))
+
+mean_angles = np.zeros((num_freqs, num_runs))
+
+mean_vec_dir = np.zeros((num_freqs, num_runs, num_cells))
+
+for n_freq in range(num_freqs):
+    for n_run in range(num_runs):
+        temp_data = trials_all[n_freq][n_run]
+        
+        temp_base = np.mean(temp_data[base_time,:,:], axis=0)
+        temp_on = np.mean(temp_data[on_time,:,:], axis=0)
+        
+        temp_base_mean = np.mean(temp_base, axis=0)
+        temp_on_mean = np.mean(temp_on, axis=0)
+        
+        base_std[n_freq, n_run,:] = np.std(temp_base, axis=0)
+        on_std[n_freq, n_run,:] = np.std(temp_on, axis=0)
+        
+        base_mean[n_freq, n_run,:] = temp_base_mean
+        on_mean[n_freq, n_run,:] = temp_on_mean
+        
+        mean_vec_dir[n_freq, n_run,:] = temp_on_mean - temp_base_mean
+        
+        base_dist_mean[n_freq, n_run] = np.mean(f_euc_dist(temp_base, temp_base_mean))
+        on_dist_mean[n_freq, n_run] = np.mean(f_euc_dist(temp_on, temp_on_mean))
+        
+        mean_indiv_mag[n_freq, n_run] = np.mean(f_euc_dist(temp_base, temp_on))
+        
+        mean_mag[n_freq, n_run] = f_euc_dist(temp_base_mean, temp_on_mean)
+        
+        trial_directions = temp_on - temp_base
+        mean_direction = np.mean(trial_directions, axis=0)
+
+        vec_angles = f_cos_sim(trial_directions.T, mean_direction)
+        #vec_angles2 = 1 - pdist(np.vstack((mean_direction, trial_directions)), 'cosine')
+        
+        mean_angles[n_freq, n_run] = np.mean(vec_angles)
+
+# plt.figure()
+# plt.imshow(base_dist_mean)
+# plt.colorbar()
+# plt.title('control trial from mean; baseline dist')
+# plt.ylabel('cont freq')
+# plt.xlabel('run')
+
+# plt.figure()
+# plt.imshow(on_dist_mean)
+# plt.colorbar()
+# plt.title('control trial from mean; onset dist')
+# plt.ylabel('cont freq')
+# plt.xlabel('run')
+
+# plt.figure()
+# plt.imshow(mean_indiv_mag)
+# plt.colorbar()
+# plt.title('control trial from mean; indiv vec mag')
+# plt.ylabel('cont freq')
+# plt.xlabel('run')
+
+# plt.figure()
+# plt.imshow(mean_mag)
+# plt.colorbar()
+# plt.title('control trial from mean; mean vec mag')
+# plt.ylabel('cont freq')
+# plt.xlabel('run')
+
+# plt.figure()
+# plt.imshow(mean_angles)
+# plt.colorbar()
+# plt.title('control trial from mean; vec cosine angles')
+# plt.ylabel('cont freq')
+# plt.xlabel('run')
+
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [base_dist_mean, on_dist_mean], legend=['baseline', 'stim on'])
+plt.ylabel('euc dist')
+plt.xlabel('cont freq')
+plt.title('control trial from mean; baseline dist')
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [mean_indiv_mag, mean_mag], legend=['indiv vec mag mean', 'mean vec mag'])
+plt.ylabel('euc dist')
+plt.xlabel('cont freq')
+plt.title('control trial from mean; vec mag')
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), mean_angles)
+plt.ylabel('cosine similarity')
+plt.xlabel('cont freq')
+plt.title('control trial from mean; vec cosine angles')
+
+#%% gather deviant trials
+
+freq_red_all = np.unique(red_dd_seq[0,:])
+freqs_dev_all = np.unique(red_dd_seq[1,:])
+num_freq_r = len(freq_red_all)
+num_freq_d = len(freqs_dev_all)
+
+trials_rd_dev = f_gather_dev_trials(rates4d_cut, trials_oddball_ctx_cut, red_dd_seq)
+# analyze deviant trials
+
+base_dist_means_dev, on_dist_means_dev, mean_indiv_mag_dev, mean_mag_dev, mean_angles_dev, mean_vec_dir_dev = f_analyze_trial_vectors(trials_rd_dev, base_time, on_time)
+
+plt.figure()
+plt.imshow(base_dist_means_dev)
+plt.colorbar()
+plt.title('deviant trial from mean; baseline dist')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(on_dist_means_dev)
+plt.colorbar()
+plt.title('deviant trial from mean; onset dist')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(mean_indiv_mag_dev)
+plt.colorbar()
+plt.title('deviant trial from mean; indiv vec mag')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(mean_mag_dev)
+plt.colorbar()
+plt.title('deviant trial from mean; mean vec mag')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(mean_angles_dev)
+plt.colorbar()
+plt.title('deviant trial from mean; vec cosine angles')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+
+#%% gather red trials
+red_tr_idx = -3
+trials_rd_red = f_gather_red_trials(rates4d_cut, trials_oddball_freq_cut, trials_oddball_ctx_cut, red_dd_seq, red_idx = red_tr_idx)
+
+base_dist_means_red, on_dist_means_red, mean_indiv_mag_red, mean_mag_red, mean_angles_red, mean_vec_dir_red = f_analyze_trial_vectors(trials_rd_red, base_time, on_time)
+
+plt.figure()
+plt.imshow(base_dist_means_red)
+plt.colorbar()
+plt.title('red trial %d from mean; baseline dist' % red_tr_idx)
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(on_dist_means_red)
+plt.colorbar()
+plt.title('red trial %d from mean; onset dist' % red_tr_idx)
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(mean_indiv_mag_red)
+plt.colorbar()
+plt.title('red trial %d from mean; indiv vec mag' % red_tr_idx)
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(mean_mag_red)
+plt.colorbar()
+plt.title('red trial %d from mean; mean vec mag' % red_tr_idx)
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(mean_angles_red)
+plt.colorbar()
+plt.title('red trial %d from mean; vec cosine angles' % red_tr_idx)
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+
+
 #%%
 
+
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [base_dist_mean, base_dist_means_dev.T, base_dist_means_red.T], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.ylabel('euc distance')
+plt.xlabel('redundant frequency')
+plt.title('baseline dist from mean')
+
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [base_dist_mean, base_dist_means_dev, base_dist_means_red], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.ylabel('euc distance')
+plt.xlabel('deviant frequency')
+plt.title('baseline dist from mean')
+
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [on_dist_mean, on_dist_means_dev.T, on_dist_means_red.T], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.ylabel('euc distance')
+plt.xlabel('redundant frequency')
+plt.title('stim-on dist from mean')
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [on_dist_mean, on_dist_means_dev, on_dist_means_red], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.ylabel('euc distance')
+plt.xlabel('deviant frequency')
+plt.title('stim-on dist from mean')
+
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [mean_angles, mean_angles_dev.T, mean_angles_red.T], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.ylabel('cosine similarity')
+plt.xlabel('redundant frequency')
+plt.title('cosine similarity from mean')
+
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [mean_angles, mean_angles_dev, mean_angles_red], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.ylabel('cosine similarity')
+plt.xlabel('deviant frequency')
+plt.title('cosine similarity from mean')
+
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [mean_mag/mean_indiv_mag, mean_mag_dev.T/mean_indiv_mag_dev.T, mean_mag_red.T/mean_indiv_mag_red.T], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.title('trial ave vs indiv magnitude ratio')
+plt.xlabel('redundant frequency')
+plt.ylabel('magnitude ratio')
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [mean_mag/mean_indiv_mag, mean_mag_dev/mean_indiv_mag_dev, mean_mag_red/mean_indiv_mag_red], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.title('trial ave vs indiv magnitude ratio')
+plt.xlabel('deviant frequency')
+plt.ylabel('magnitude ratio')
+
+
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [mean_mag, mean_mag_dev.T, mean_mag_red.T], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.title('trial ave vec magnitudes')
+plt.xlabel('redundant frequency')
+plt.ylabel('euc dist')
+
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [mean_mag, mean_mag_dev, mean_mag_red], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.title('trial ave vec magnitudes')
+plt.xlabel('deviant frequency')
+plt.ylabel('euc dist')
+
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [mean_indiv_mag, mean_indiv_mag_dev.T, mean_indiv_mag_red.T], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.title('indiv vec magnitudes')
+plt.xlabel('redundant frequency')
+plt.ylabel('euc dist')
+
+plt.figure()
+f_plot_shadederrorbar(np.arange(20), [mean_indiv_mag, mean_indiv_mag_dev, mean_indiv_mag_red], color=['black', 'red', 'blue'], legend=['control', 'deviant', 'redundant'])
+plt.title('indiv vec magnitudes')
+plt.xlabel('deviant frequency')
+plt.ylabel('euc dist')
+
+
+
+plt.figure()
+plt.imshow(mean_mag_dev)
+plt.colorbar()
+plt.title('trial ave mag deviants')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(mean_mag_red)
+plt.colorbar()
+plt.title('trial ave mag redundants')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(mean_mag_dev/mean_mag_red)
+plt.colorbar()
+plt.title('trial ave dev-red ratio')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+
+
+plt.figure()
+plt.imshow(mean_indiv_mag_dev)
+plt.colorbar()
+plt.title('indiv vec mag deviants')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(mean_indiv_mag_red)
+plt.colorbar()
+plt.title('indiv vec mag redundants')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+plt.figure()
+plt.imshow(mean_indiv_mag_dev/mean_indiv_mag_red)
+plt.colorbar()
+plt.title('indiv vec dev-red ratio')
+plt.ylabel('deviant freq')
+plt.xlabel('redundant freq')
+
+
+
+# plt.figure()
+# f_plot_shadederrorbar(np.arange(20), base_dist_mean, color='black')
+# for n_fr in range(num_freq_r):
+#     plt.plot(base_dist_means_dev[n_fr,:], color=colors_freq[n_fr,:])
+# plt.title('baseline dist from mean')
+# plt.ylabel('euc distance')
+# plt.xlabel('deviant frequency')
+
+# plt.figure()
+# f_plot_shadederrorbar(np.arange(20), on_dist_mean, color='black')
+# for n_fr in range(num_freq_r):
+#     plt.plot(on_dist_means_dev[n_fr,:], color=colors_freq[n_fr,:])
+# plt.title('stim on dist from mean')
+# plt.ylabel('euc distance')
+# plt.xlabel('deviant frequency')
+
+# plt.figure()
+# f_plot_shadederrorbar(np.arange(20), mean_angles, color='black')
+# for n_fr in range(num_freq_r):
+#     plt.plot(mean_angles_dev[n_fr,:], color=colors_freq[n_fr,:])
+# plt.title('cosine similarity from mean')
+# plt.ylabel('cosine similarity')
+# plt.xlabel('deviant frequency')
+
+# plt.figure()
+# f_plot_shadederrorbar(np.arange(20), mean_mag, color='black')
+# for n_fr in range(num_freq_r):
+#     plt.plot(mean_mag_dev[n_fr,:], color=colors_freq[n_fr,:])
+# plt.title('dev vec magnitudes')
+# plt.ylabel('euc distance')
+# plt.xlabel('deviant frequency')
+
+# plt.figure()
+# f_plot_shadederrorbar(np.arange(20), mean_mag, color='black')
+# for n_fr in range(num_freq_r):
+#     plt.plot(mean_mag_red[n_fr,:], color=colors_freq[n_fr,:])
+# plt.title('red vec magnitudes')
+# plt.ylabel('euc distance')
+# plt.xlabel('deviant frequency')
+
+
+# plt.figure()
+# f_plot_shadederrorbar(np.arange(20), [mean_indiv_mag, mean_mag], legend=['indiv vec mag mean', 'mean vec mag'])
+# for n_fr in range(num_freq_r):
+#     plt.plot(mean_mag_rd[n_fr,:], color=colors_freq[n_fr,:])
+# plt.title('vec magnitudes')
+# plt.ylabel('euc distance')
+# plt.xlabel('deviant frequency')
+
+#%%
+
+cos_sim_all_dev_dev = np.zeros((num_freq_d, num_freq_d, num_freq_r))
+
+for n_freq in range(num_freq_r):
+
+    dist1 = squareform(pdist(mean_vec_dir_dev[:,n_freq,:], 'cosine'))
+    
+    cos_sim_all_dev_dev[:,:,n_freq] = 1 - dist1
+    
+plt.figure()
+plt.imshow(np.mean(cos_sim_all_dev_dev, axis=2))
+plt.colorbar()
+plt.clim(0,1)
+plt.title('same dev, different red')
+plt.xlabel('frequency')
+plt.ylabel('frequency')
+
+cos_sim_all_dev_red = np.zeros((num_freq_r, num_freq_r, num_freq_d))
+
+for n_freq in range(num_freq_d):
+
+    dist1 = squareform(pdist(mean_vec_dir_dev[n_freq,:,:], 'cosine'))
+    
+    cos_sim_all_dev_red[:,:,n_freq] = 1 - dist1
+
+   
+plt.figure()
+plt.imshow(np.mean(cos_sim_all_dev_red, axis=2))
+plt.colorbar()
+plt.clim(0,1)
+plt.title('same red, different dev')
+plt.xlabel('frequency')
+plt.ylabel('frequency')
+
+
+cos_sim_all_red_red = np.zeros((num_freq_r, num_freq_r, num_freq_d))
+
+for n_freq in range(num_freq_d):
+
+    dist1 = squareform(pdist(mean_vec_dir_red[:,n_freq,:], 'cosine'))
+    
+    cos_sim_all_red_red[:,:,n_freq] = 1 - dist1
+
+   
+plt.figure()
+plt.imshow(np.mean(cos_sim_all_red_red, axis=2))
+plt.colorbar()
+plt.clim(0,1)
+plt.title('red resp tuning')
+plt.xlabel('frequency')
+plt.ylabel('frequency')
+
+
+
+mean_vec_dir_dev
+
+mean_vec_dir_red
+
+mean_vec_dir_cont = np.mean(mean_vec_dir, axis=1)
+
+
+vec1 = mean_vec_dir_dev[0,:,:]
+vec2 = mean_vec_dir_cont
+
+
+vec1_mag = np.sqrt(np.dot(vec1, vec1.T))
+vec2_mag = np.sqrt(np.dot(vec2, vec2.T))
+
+mag_2_inv = 1/(vec1_mag*vec1_mag)
+mag_2_inv[~np.eye(20, dtype=bool)] = 0
+
+cos_sim = np.dot(np.dot(vec1, vec2.T), mag_2_inv)
+
+plt.figure()
+plt.imshow(cos_sim)
+plt.colorbar()
+
+np.diagonal([1, 1, 1])
+
+mean_vec_dir_dev.shape
+
+for n_red in range(num_freq_r):
+    vec_angles = f_cos_sim(mean_vec_dir_dev[n_red,:,:].T, mean_vec_dir_cont)
+
+
+#%%
 trial_ave_rdc = f_get_rdc_trav(trials_oddball_ctx_cut, rates4d_cut, trials_cont_cut, rates_cont_freq4d_cut, plot_t1, ob_data1['red_dd_seq'])
 
 trial_ave4d2, trial_data_sort, num_dd_trials = f_trial_ave_ctx_pad2(rates4d_cut, trials_oddball_ctx_cut, pre_dd = 0, post_dd = 3, max_trials=5, shuffle_trials=True)

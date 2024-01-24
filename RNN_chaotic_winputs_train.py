@@ -43,7 +43,7 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'num_ctx':                        1,
           'oddball_stim':                   np.arange(50)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
           'dd_frac':                        0.1,
-          'dt':                             0.05,
+          'dt':                             0.01,
           
           'train_batch_size':               100,
           'train_trials_in_sample':         20,
@@ -57,7 +57,7 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
           'input_size':                     50,
           'hidden_size':                    250,            # number of RNN neurons
           'g':                              1,  # 1            # recurrent connection strength 
-          'tau':                            .5,
+          'tau':                            .1,
           'learning_rate':                  0.00004,           # 0.005
           'activation':                     'ReLU',             # ReLU tanh
           'normalize_input':                False,
@@ -70,7 +70,6 @@ params = {'train_type':                     'oddball2',     #   oddball2, freq2 
 
 now1 = datetime.now()
 params['train_date'] = now1
-
 
 #torch.get_num_threads()
 torch.set_num_threads(8)

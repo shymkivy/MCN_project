@@ -326,7 +326,7 @@ def f_RNN_trial_ctx_train(rnn, loss, input_train, output_train_ctx, params):
 
 def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
     
-    hidden_size = params['hidden_size'];     
+    #hidden_size = params['hidden_size'];     
     output_size = params['num_ctx'] + 1
     reinit_rate = params['train_reinit_rate']
     num_rep = params['train_repeats_per_samp']
@@ -344,8 +344,12 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
 
     # initialize 
     #rnn_out['loss'] = np.zeros((num_samp, num_rep))
-    rnn_out['loss'] = []
-    rnn_out['loss_by_tt'] = []
+    if 'loss' not in rnn_out.keys():
+        rnn_out['loss'] = []
+        rnn_out['loss_by_tt'] = []
+        samp_start = 0
+    else:
+        samp_start = len(rnn_out['loss'])
     #rnn_out['rates'] = np.zeros((hidden_size, T, num_rep, num_samp))
     #rnn_out['outputs'] = np.zeros((output_size, T, num_rep, num_samp))
 
@@ -353,7 +357,7 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
     
     start_time = time.time()
     
-    for n_samp in range(num_samp):
+    for n_samp in range(samp_start, num_samp):
          
         rate_start = rnn.init_rate(params['train_batch_size']).to(params['device'])
         
@@ -364,9 +368,9 @@ def f_RNN_trial_ctx_train2(rnn, loss, stim_templates, params, rnn_out = {}):
         input_train_oddball, _ = f_gen_input_output_from_seq(trials_train_oddball_freq, stim_templates['freq_input'], stim_templates['freq_output'], params)
         
         if params['num_ctx'] == 1:
-            trials_train_oddball_ctx2 = trials_train_oddball_ctx == 2
+            trials_train_oddball_ctx2 = (trials_train_oddball_ctx == 2).astype(int)
         else:
-            trials_train_oddball_ctx2 = trials_train_oddball_ctx
+            trials_train_oddball_ctx2 = (trials_train_oddball_ctx).astype(int)
         
         _, target_train_oddball_ctx = f_gen_input_output_from_seq(trials_train_oddball_ctx2, stim_templates['freq_input'], stim_templates['freq_output'][:output_size,:,:output_size], params)
         
@@ -515,7 +519,11 @@ def f_RNN_trial_freq_train2(rnn, loss, stim_templates, params, rnn_out = {}):
 
     # initialize 
     #rnn_out['loss'] = np.zeros((num_samp, num_rep))
-    rnn_out['loss'] = []
+    if 'loss' not in rnn_out.keys():
+        rnn_out['loss'] = []
+        samp_start = 0
+    else:
+        samp_start = len(rnn_out['loss'])
     #rnn_out['rates'] = np.zeros((hidden_size, T, num_rep, num_samp))
     #rnn_out['outputs'] = np.zeros((output_size, T, num_rep, num_samp))
 
@@ -523,7 +531,7 @@ def f_RNN_trial_freq_train2(rnn, loss, stim_templates, params, rnn_out = {}):
     
     start_time = time.time()
     
-    for n_samp in range(num_samp):
+    for n_samp in range(samp_start, num_samp):
          
         rate_start = rnn.init_rate(params['train_batch_size']).to(params['device'])
         

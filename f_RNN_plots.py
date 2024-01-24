@@ -769,3 +769,26 @@ def f_plot_run_dist(rates_in, plot_runs=20, plot_trials=100, zero_trials=10, sti
     plt.xlabel('trials')
     if type(ymax) is int:
         plt.ylim(top=ymax)
+
+#%%
+def f_plot_shadederrorbar(x, y, alpha=0.2, legend=[], color=[]):
+    
+    if type(y) is list:
+        y1 = y
+        color1 = color
+    else:
+        y1 = [y]
+        color1 = [color]
+    line_all = []
+    for n_pl in range(len(y1)):
+        y2 = y1[n_pl]
+        mean1 = np.mean(y2, axis=1)
+        std1 = np.std(y2, axis=1)
+        if len(color):
+            l1 = plt.plot(x, mean1, color=color1[n_pl])
+        else:
+            l1 = plt.plot(x, mean1)
+        plt.fill_between(x, mean1-std1, mean1+std1, color=l1[0].get_color(), alpha=alpha)
+        line_all.append(l1[0])
+    if len(legend):
+        plt.legend(line_all, legend)
