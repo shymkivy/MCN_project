@@ -32,44 +32,65 @@ import torch.nn as nn
 
 from datetime import datetime
 
+
+
+#%%
+
+new_train = 1
+
+load_fname = 'oddball2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_1e-03lr_2023_10_5_10h_54m_RNN'
+
+train_num_samples = round(2e5)
+
 #%% input params
 
-params = {'train_type':                     'oddball2',     #   oddball2, freq2  standard, linear, oddball, freq_oddball,
-          'device':                         'cpu',         # 'cpu', 'cuda'
-          
-          'stim_duration':                  0.5,
-          'isi_duration':                   0.5,
-          'num_freq_stim':                  50,
-          'num_ctx':                        1,
-          'oddball_stim':                   np.arange(50)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
-          'dd_frac':                        0.1,
-          'dt':                             0.01,
-          
-          'train_batch_size':               100,
-          'train_trials_in_sample':         20,
-          'train_num_samples':              120000,
-          'train_loss_weights':             [0.05, 0.95], # isi, red, dd [1e-5, 1e-5, 1] [0.05, 0.05, 0.9], [0.05, 0.95]  [1/.5, 1/.45, 1/0.05]
-          'train_add_noise':                1,               # sqrt(2*dt/tau*sigma_req^2) * norm(0,1); can be true false or a float, which will change the magnitude of noise
-
-          'train_repeats_per_samp':         1,
-          'train_reinit_rate':              0,
-          
-          'input_size':                     50,
-          'hidden_size':                    250,            # number of RNN neurons
-          'g':                              1,  # 1            # recurrent connection strength 
-          'tau':                            .1,
-          'learning_rate':                  0.00004,           # 0.005
-          'activation':                     'ReLU',             # ReLU tanh
-          'normalize_input':                False,
-          
-          'stim_t_std':                     3,              # 3 or 0
-          'input_noise_std':                1/100,
-          
-          'plot_deets':                     0,
-          }
-
 now1 = datetime.now()
-params['train_date'] = now1
+
+if new_train:
+    params = {'train_type':                     'oddball2',     #   oddball2, freq2  standard, linear, oddball, freq_oddball,
+              'device':                         'cpu',         # 'cpu', 'cuda'
+              
+              'stim_duration':                  0.5,
+              'isi_duration':                   0.5,
+              'num_freq_stim':                  50,
+              'num_ctx':                        1,
+              'oddball_stim':                   np.arange(50)+1, # np.arange(10)+1, #[3, 6], #np.arange(10)+1,
+              'dd_frac':                        0.1,
+              'dt':                             0.05,
+              
+              'train_batch_size':               100,
+              'train_trials_in_sample':         20,
+              'train_num_samples':              round(2e5),
+              'train_loss_weights':             [0.05, 0.95], # isi, red, dd [1e-5, 1e-5, 1] [0.05, 0.05, 0.9], [0.05, 0.95]  [1/.5, 1/.45, 1/0.05]
+              'train_add_noise':                1,               # sqrt(2*dt/tau*sigma_req^2) * norm(0,1); can be true false or a float, which will change the magnitude of noise
+    
+              'train_repeats_per_samp':         1,
+              'train_reinit_rate':              0,
+              
+              'input_size':                     50,
+              'hidden_size':                    75,            # number of RNN neurons
+              'g':                              1,  # 1            # recurrent connection strength 
+              'tau':                            .5,
+              'learning_rate':                  2e-3,           # 0.005
+              'activation':                     'ReLU',             # ReLU tanh
+              'normalize_input':                False,
+              
+              'stim_t_std':                     3,              # 3 or 0
+              'input_noise_std':                1/100,
+              
+              'plot_deets':                     0,
+              'train_date':                     now1,
+              }
+else:
+    train_out = np.load(path1 + '/RNN_data/' + load_fname[:-4] + '_train_out.npy', allow_pickle=True).item()
+    
+    params = np.load(path1 + '/RNN_data/' + load_fname[:-4] + '_params.npy', allow_pickle=True).item()
+    
+    params['train_date_ext'] = now1
+    
+    params['train_num_samples'] = train_num_samples
+
+
 
 #torch.get_num_threads()
 torch.set_num_threads(8)
@@ -80,9 +101,17 @@ if 'train_date' not in params.keys():
     params['train_date'] = datetime.now()
 
 if 'activation' not in params.keys():
-    params['activation'] = 'tanh'
+    params['activation'] = 'ReLU'
         
+if 'train_add_noise' not in params.keys():
+    params['train_add_noise'] = 0
 
+if 'train_loss_weights' not in params.keys():
+    params['train_loss_weights'] = [0.1, 0.1, 0.9]
+
+if 'device' not in params.keys():
+    params['device'] = 'cpu'
+    
 name_tag1, name_tag2 = f_gen_name_tag(params)
 
 name_tag  = name_tag1 + '_' + name_tag2
@@ -97,21 +126,21 @@ trial_len = round((params['stim_duration'] + params['isi_duration'])/params['dt'
 
 #%% initialize RNN 
 
-if 'device' not in params.keys():
-    params['device'] = 'cpu'
-
 output_size = params['num_freq_stim'] + 1
 output_size_ctx = params['num_ctx'] + 1
 hidden_size = params['hidden_size'];
 alpha = params['dt']/params['tau'];         
 
 rnn = RNN_chaotic(params['input_size'], params['hidden_size'], output_size, output_size_ctx, alpha, params['train_add_noise'], activation=params['activation']).to(params['device'])
-rnn.init_weights(params['g'])
 
+if new_train:
+    rnn.init_weights(params['g'])
+else:
+    rnn.load_state_dict(torch.load(path1 + '/RNN_data/' + load_fname))
+    
+    figs = f_plot_train_loss(train_out, name_tag1, name_tag2)
 
 #%%
-if 'train_loss_weights' not in params.keys():
-    params['train_loss_weights'] = [0.1, 0.1, 0.9]
 
 #loss = nn.NLLLoss()
 
@@ -124,7 +153,8 @@ loss_ctx = nn.CrossEntropyLoss(weight = torch.tensor(params['train_loss_weights'
 # else:
 #     loss_ctx = nn.BCELoss(weight = torch.tensor(params['train_loss_weights']).to(params['device']))
 
-train_out = {}     # initialize outputs, so they are saved when process breaks
+if new_train:
+    train_out = {}     # initialize outputs, so they are saved when process breaks
 
 #%% training
 

@@ -13,6 +13,7 @@ from matplotlib import gridspec
 #from matplotlib import colors
    
 #import time
+from datetime import datetime
 
 from scipy import signal
 from scipy.spatial.distance import pdist, squareform #, cdist, squareform
@@ -523,8 +524,23 @@ def f_plot_train_test_loss(train_out, test_out_cont, test_out_ob, name_tag1, nam
 
 #%%
 def f_gen_name_tag(params, save_tag=''):
-    now2 = params['train_date']
     
+    if 'train_date' in params.keys():
+        now2 = params['train_date']
+        date_tag = '_%d_%d_%d_%dh_%dm' % (now2.year, now2.month, now2.day, now2.hour, now2.minute)
+    else:
+        date_tag = ''
+        
+    if 'train_date_ext' in params.keys():
+        now2 = params['train_date_ext']
+        date_tag_ext = '_ext_%d_%d_%d_%dh_%dm' % (now2.year, now2.month, now2.day, now2.hour, now2.minute)
+    else:
+        date_tag_ext = ''
+    
+    if 'activation' in params.keys():
+        act_tag = params['activation']
+    else:
+        act_tag = ''
     
     if 'train_num_samples' in params.keys():
         num_samples = params['train_num_samples']
@@ -538,16 +554,19 @@ def f_gen_name_tag(params, save_tag=''):
                 num_samples = params['train_num_samples_freq']
     
     name_tag1 = '%s%s_%dctx_%dtrainsamp_%dneurons_%s_%dtau_%ddt' % (save_tag, params['train_type'], params['num_ctx'],
-                num_samples, params['hidden_size'], params['activation'], params['tau']*1000, params['dt']*1000)
+                num_samples, params['hidden_size'], act_tag, params['tau']*1000, params['dt']*1000)
 
-    name_tag2 = '%dtrials_%dstim_%dbatch_%.4flr_noise%d_%d_%d_%d_%dh_%dm' % (params['train_trials_in_sample'], params['num_freq_stim'], params['train_batch_size'], params['learning_rate'], params['train_add_noise'],
-                 now2.year, now2.month, now2.day, now2.hour, now2.minute)
+    name_tag2 = '%dtrials_%dstim_%dbatch_%.0elr_noise%d%s%s' % (params['train_trials_in_sample'], params['num_freq_stim'], params['train_batch_size'], params['learning_rate'], params['train_add_noise'], date_tag, date_tag_ext)
     
     return name_tag1, name_tag2
 
 #%%
-def f_reshape_rates(rates3d_in, num_trials, trial_len, num_skip_trials = 0):
+def f_reshape_rates(rates3d_in, params, num_skip_trials = 0):
     num_t, num_batch, num_cells = rates3d_in.shape  #(8000, 100, 25)
+    
+    trial_len = round((params['stim_duration'] + params['isi_duration']) / params['dt'])
+
+    num_trials = round(num_t/trial_len)
     
     num_trials2 = num_trials - num_skip_trials
     
@@ -558,6 +577,9 @@ def f_reshape_rates(rates3d_in, num_trials, trial_len, num_skip_trials = 0):
     rates2d_cut = np.reshape(rates3d_cut, (trial_len*num_trials2*num_batch, num_cells), order = 'F')
     
     return rates4d_cut, rates3d_cut, rates2d_cut
+
+def f_cut_reshape_rates_wrap(test_data, params_ob, num_skip_trials = 0):
+    test_data['rates4d_cut'], _, test_data['rates2d_cut'] = f_reshape_rates(test_data['rates'], params_ob, num_skip_trials = num_skip_trials)
 
 #%%
 
@@ -578,10 +600,14 @@ def f_plot_exp_var(var_list, leg_list, title_tag='', max_comps_plot=9999):
 
 #%%
 
-def f_plot_freq_space_distances_control(rates_in, trial_types, plot_t, labels, base_correct = True, metric = 'euclidean'):
+def f_plot_freq_space_distances_control(rates_in, trial_types, params, labels, base_correct = True, metric = 'euclidean', base_time = [-0.5, 0], resp_time = [0.25, 0.5]):
     
-    resp_time_idx = np.logical_and(plot_t>0.25, plot_t<0.5)
-    base_idx = plot_t<0
+    trial_len = rates_in[0].shape[0]
+    
+    plot_t1 = (np.arange(trial_len)-trial_len/4)*params['dt']
+    
+    resp_time_idx = np.logical_and(plot_t1>resp_time[0], plot_t1<resp_time[1])
+    base_idx = np.logical_and(plot_t1>base_time[0], plot_t1<base_time[1])
     
     if base_correct:
         title_tag1 = '; basecorr'
@@ -646,10 +672,14 @@ def f_plot_freq_space_distances_control(rates_in, trial_types, plot_t, labels, b
     return dist_all
 
 #%%
-def f_plot_freq_space_distances_oddball(rates_in, trial_types_ctx, red_dd_seq, plot_t, labels, base_correct = True, metric='euclidean'):
+def f_plot_freq_space_distances_oddball(rates_in, trial_types_ctx, red_dd_seq, params, labels, base_correct = True, metric='euclidean', base_time = [-0.5, 0], resp_time = [0.25, 0.5]):
     
-    resp_time_idx = np.logical_and(plot_t>0.25, plot_t<0.5)
-    base_idx = plot_t<0
+    trial_len = rates_in[0].shape[0]
+    
+    plot_t1 = (np.arange(trial_len)-trial_len/4)*params['dt']
+    
+    resp_time_idx = np.logical_and(plot_t1>resp_time[0], plot_t1<resp_time[1])
+    base_idx = np.logical_and(plot_t1>base_time[0], plot_t1<base_time[1])
     
     if base_correct:
         title_tag1 = '; basecorr'
@@ -733,4 +763,24 @@ def f_plot_freq_space_distances_oddball(rates_in, trial_types_ctx, red_dd_seq, p
     return dist_ctx
 
 
-        
+#%%   
+
+def f_save_fig(fig, path='/', name_tag=''):
+    
+    plt.rcParams['svg.fonttype'] = 'none'
+    name1 = fig.axes[0].title.get_text()
+    now1 = datetime.now()
+    
+    date_tag = '%d_%d_%d_%dh_%dm' % (now1.year, now1.month, now1.day, now1.hour, now1.minute)
+    
+    plt.savefig('%s/%s_%s%s.svg' % (path, name1, date_tag, name_tag))
+    plt.savefig('%s/%s_%s%s.png' % (path, name1, date_tag, name_tag), dpi=1200)
+
+    
+    
+
+
+
+
+
+

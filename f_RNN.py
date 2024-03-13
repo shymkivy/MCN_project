@@ -906,6 +906,17 @@ def f_gen_ob_dset(params, stim_templates, num_trials=100, num_runs=100, num_dev_
                 'target_oddball_freq':          target_oddball_freq,
                 'target_oddball_ctx3':          target_oddball_ctx3,
                 'target_oddball_ctx':           target_oddball_ctx,
+                'num_trials':                   num_trials,
+                'num_runs':                     num_runs,
+                'num_dev_stim':                 num_dev_stim,
+                'num_red_stim':                 num_red_stim,
+                'num_freqs':                    num_freqs,
+                'prepend_zeros':                prepend_zeros,
+                'stim_sample':                  stim_sample,
+                'ob_type':                      ob_type,
+                'freq_selection':               freq_selection,
+                'can_be_same':                  can_be_same,
+                'can_have_no_dd':               can_have_no_dd,
                 }
     
     return data_out
@@ -920,10 +931,15 @@ def f_gen_cont_dset(params, stim_templates, num_trials=100, num_runs=100, num_co
 
     input_cont, target_cont = f_gen_input_output_from_seq(trials_cont2, stim_templates['freq_input'], stim_templates['freq_output'], params)
 
-    data_out = {'control_stim':                    cont_stim,
-                'trials_control_freq':             trials_cont2,
-                'input_control':                   input_cont,
-                'target_control':                  target_cont,
+    data_out = {'control_stim':                     cont_stim,
+                'trials_control_freq':              trials_cont2,
+                'input_control':                    input_cont,
+                'target_control':                   target_cont,
+                'num_trials':                       num_trials,
+                'num_runs':                         num_runs,
+                'num_cont_stim':                    num_cont_stim,
+                'num_freqs':                        num_freqs,
+                'prepend_zeros':                    prepend_zeros
                 }
 
     return data_out

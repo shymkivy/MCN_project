@@ -44,6 +44,18 @@ def f_run_dred(rates2d, subtr_mean=0, method=1):
     
     return proj_data, exp_var, components, mean_all
 
+#%%
+
+def f_run_dred_wrap(test_data, subtr_mean=0, method=1):
+    test_data['dred_rates2d'], test_data['exp_var'], test_data['dred_comp'], test_data['dred_mean'] = f_run_dred(test_data['rates2d_cut'], subtr_mean=subtr_mean, method=method)
+    #comp_out3d = np.reshape(proj_data, (trial_len*num_trials_cut, num_runs, num_cells), order = 'F')
+    test_data['dred_rates4d'] = np.reshape(test_data['dred_rates2d'], test_data['rates4d_cut'].shape, order = 'F')
+
+
+def f_proj_onto_dred(test_data, dred_comp):
+    test_data['dred_proj_rates2d'] = np.dot(test_data['rates2d_cut'], dred_comp)
+    #comp_outf_const3d = np.reshape(proj_dataf_const, (trial_len*num_trials_cut, red_stim_const.shape[0], num_cellsf), order = 'F')
+    test_data['dred_proj_rates4d'] = np.reshape(test_data['dred_proj_rates2d'], test_data['rates4d_cut'].shape, order = 'F')
 
 #%% dred wit hpytorch
 

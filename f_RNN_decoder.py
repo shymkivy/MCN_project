@@ -447,6 +447,72 @@ def f_plot_one_shot_dec_bycat(perform_final, perform_binwise, perform_y_is_cat, 
     plt.legend(ax3.lines, leg_all2+ ['max', 'chance']) # ['actual'] + 
     plt.suptitle('stim type decoding, one shot train, %s' % (title_tag7))
 
+def f_plot_one_shot_dec_bycat2(perform_final, perform_binwise, perform_y_is_cat, plot_t1, net_idx, leg_net, trial_labels, trial_colors):
+    #y_is_ddfin = np.mean(y_is_dd, axis=2)
+    #test_is_ddfin = test_is_cat_final[:,:,:,1]
+    trial_len, num_tt, num_cat, num_dec = perform_y_is_cat.shape
+    
+    colors1 = ['tab:blue', 'tab:orange', 'tab:green']
+    
+    if num_cat > num_tt:
+        title_tag7 = 'stim plus isi train'
+    else:
+        title_tag7 = 'stim on train'
+    
+    ylims = [-0.05, 1.05]
+    
+    # leg_all2 = []
+    # for n_dec in range(num_dec):
+    #     leg_all2.append('%s, %.1f%%' % (leg_all[n_dec], perform_final[n_dec]*100))
+    
+    leg_idx = np.array([np.where(net_idx==0)[0][0], np.where(net_idx==1)[0][0], np.where(net_idx==2)[0][0]]).astype(int)
+    
+    plt.figure()
+    for n_tt in range(num_tt):
+        
+        ax1 = plt.subplot(1,num_tt,n_tt+1)
+        if type(trial_colors) == list:
+            color1 = trial_colors[n_tt]
+        else:
+            color1 = trial_colors[n_tt,:]
+        ax1.add_patch(patches.Rectangle((plot_t1[5], ylims[0]), 0.5, ylims[1]-ylims[0], edgecolor=color1, facecolor=color1, linewidth=1))
+        #ax1.plot(plot_t1, y_is_ddfin[:,0])
+        for n_dec in range(num_dec):
+            if num_cat > num_tt:
+                n_cat = n_tt+1
+            else:
+                n_cat = n_tt
+            ax1.plot(plot_t1, perform_y_is_cat[:,n_tt,n_cat, n_dec], color=colors1[net_idx[n_dec]])
+        plt.ylim(ylims)
+        if not n_tt:
+            plt.ylabel('stim probability')
+            plt.xlabel('time (sec)')
+        else:
+            plt.tick_params(axis='y', labelleft=False)
+        
+        if len(trial_labels):
+            label1 = trial_labels[n_tt]
+        else:
+            label1 = 'input %d' % n_tt
+        plt.title(label1)
+    plt.legend(np.array(ax1.lines)[leg_idx], leg_net) # ['actual'] + 
+    plt.suptitle('stim type decoding, one shot train, %s' % (title_tag7))
+    
+    plt.figure()
+    ax3 = plt.subplot(1,1,1)
+    ax3.add_patch(patches.Rectangle((plot_t1[5], ylims[0]), 0.5, ylims[1]-ylims[0], edgecolor='lightgray', facecolor='lightgray', linewidth=1))
+    for n_dec in range(num_dec):
+        ax3.plot(plot_t1, np.mean(perform_binwise[:,:,n_dec],axis=1), color=colors1[net_idx[n_dec]])
+    ax3.plot(plot_t1, np.ones(plot_t1.shape[0]), '--', color='black')
+    ax3.plot(plot_t1, np.ones(plot_t1.shape[0])/num_cat, '--', color='gray')
+    plt.ylim(ylims)
+    plt.ylabel('decoder performance')
+    plt.xlabel('time (sec)')
+    plt.title('performance')
+    #plt.legend(('deviant', 'redundant'))
+    plt.legend(np.array(ax3.lines)[np.hstack((leg_idx, np.array([-2, -1])))], leg_net+ ['max', 'chance']) # ['actual'] + 
+    plt.suptitle('stim type decoding, one shot train, %s' % (title_tag7))
+
 #%%
 
 def f_plot_one_shot_dec_iscat(perform_final, perform_binwise, perform_y_is_cat, plot_t1, leg_all, trial_labels, trial_colors, cat_plot=1):
