@@ -95,6 +95,9 @@ rnn_flist = [
              'oddball2_1ctx_200000trainsamp_50neurons_ReLU_500tau_50dt_20trials_50stim_100batch_2e-03lr_noise1_2024_3_10_21h_27m_RNN',
              'oddball2_1ctx_200000trainsamp_100neurons_ReLU_500tau_50dt_20trials_50stim_100batch_2e-03lr_noise1_2024_3_11_14h_58m_RNN',
              'oddball2_1ctx_200000trainsamp_75neurons_ReLU_500tau_50dt_20trials_50stim_100batch_2e-03lr_noise1_2024_3_11_16h_47m_RNN',
+             'oddball2_1ctx_200000trainsamp_75neurons_ReLU_500tau_50dt_20trials_50stim_75batch_1e-03lr_noise1_2024_3_13_11h_26m_RNN',
+             'oddball2_1ctx_200000trainsamp_75neurons_ReLU_500tau_50dt_20trials_50stim_75batch_1e-03lr_noise1_2024_3_14_10h_45m_RNN',
+             'oddball2_1ctx_200000trainsamp_75neurons_ReLU_500tau_50dt_20trials_50stim_75batch_1e-03lr_noise1_2024_3_15_10h_58m_RNN',
              ]
 
 rnnf_flist = ['freq2_1ctx_80000trainsamp_25neurons_ReLU_500tau_50dt_20trials_50stim_100batch_1e-03lr_noise0_2023_12_20_0h_34m_RNN',
